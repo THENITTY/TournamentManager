@@ -3,18 +3,27 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import type { Database } from '../../types/database.types';
 import { Link, useNavigate } from 'react-router-dom';
-import { Trophy, LogOut, Search, Users, Shield } from 'lucide-react';
+import { Trophy, LogOut, Search, Users, Shield, Plus, Check, X } from 'lucide-react';
+import Navbar from '../../components/Navbar';
 
-type Profile = Database['public']['Tables']['profiles']['Row'];
-type League = Database['public']['Tables']['leagues']['Row'];
-type LeagueWithRole = League & { role: 'admin' | 'co_admin' | 'user'; status: 'pending' | 'approved' };
+type BaseLeague = Database['public']['Tables']['leagues']['Row'];
+
+type League = Omit<BaseLeague, 'status'> & {
+    role?: 'admin' | 'co_admin' | 'user';
+    status: BaseLeague['status'] | 'pending' | 'approved';
+};
 
 export default function DashboardPage() {
-    const [profile, setProfile] = useState<Profile | null>(null);
-    const [myLeagues, setMyLeagues] = useState<LeagueWithRole[]>([]);
+    const [profile, setProfile] = useState<{ id: string, role: string, first_name: string } | null>(null);
+    const [myLeagues, setMyLeagues] = useState<League[]>([]);
     const [availableLeagues, setAvailableLeagues] = useState<League[]>([]);
     const [loading, setLoading] = useState(true);
     const navigate = useNavigate();
+
+    // Creation State
+    const [isCreating, setIsCreating] = useState(false);
+    const [newLeagueName, setNewLeagueName] = useState('');
+    const [isPublic, setIsPublic] = useState(false);
 
     useEffect(() => {
         const init = async () => {
@@ -27,12 +36,8 @@ export default function DashboardPage() {
             }
 
             // 1. Fetch Profile
-            const { data: profile } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', user.id)
-                .single();
-            setProfile(profile);
+            const { data: profileData } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+            if (profileData) setProfile(profileData);
 
             // 2. Fetch joined leagues with Role & Status
             const { data: memberships } = await supabase
@@ -51,14 +56,14 @@ export default function DashboardPage() {
                 .order('created_at', { ascending: false });
 
             if (allLeagues) {
-                const my: LeagueWithRole[] = allLeagues
+                const my: League[] = allLeagues
                     .filter(l => joinedIds.includes(l.id))
                     .map(l => {
                         const info = joinedMap.get(l.id);
                         return {
                             ...l,
                             role: (info?.role as 'admin' | 'co_admin' | 'user') || 'user',
-                            status: (profile?.role === 'super_admin' ? 'approved' : (info?.status as 'pending' | 'approved')) || 'approved'
+                            status: (profileData?.role === 'super_admin' ? 'approved' : (info?.status as 'pending' | 'approved')) || 'approved'
                         };
                     });
 
@@ -71,34 +76,67 @@ export default function DashboardPage() {
         init();
     }, [navigate]);
 
-    const handleJoin = async (e: React.MouseEvent, leagueId: string) => {
-        e.preventDefault();
+    const canCreateLeague = profile?.role === 'super_admin' || profile?.role === 'admin';
 
-        if (!profile) {
-            alert("Error: Profile not loaded. Please refresh.");
+    const handleCreateLeague = async () => {
+        if (!newLeagueName.trim() || !profile || !canCreateLeague) return;
+
+        // 1. Create League
+        // Note: created_by is added to schema. TS might complain if type not updated, casting to any/ignore for now.
+        const { data: leagueData, error: leagueError } = await supabase
+            .from('leagues')
+            .insert({
+                name: newLeagueName,
+                status: 'ongoing',
+                is_public: isPublic,
+                // @ts-ignore
+                created_by: profile.id
+            })
+            .select()
+            .single();
+
+        if (leagueError) {
+            alert("Error creating league: " + leagueError.message);
             return;
         }
 
-        // Removed confirm for debugging
+        // 2. Add Creator as Admin
+        const { error: memberError } = await supabase.from('league_members').insert({
+            league_id: leagueData.id,
+            user_id: profile.id,
+            role: 'admin',
+            status: 'approved'
+        });
+
+        if (memberError) {
+            alert("League created but failed to join as admin: " + memberError.message);
+        } else {
+            // Optimistic Update
+            setMyLeagues(prev => [{ ...leagueData, role: 'admin', status: 'approved' }, ...prev]);
+            setIsCreating(false);
+            setNewLeagueName('');
+            setIsPublic(false);
+        }
+    };
+
+    const handleJoin = async (e: React.MouseEvent, leagueId: string) => {
+        e.preventDefault();
+        if (!profile) return;
 
         try {
-            console.log("Attempting to join league:", leagueId, "User:", profile.id);
             const isSuperAdmin = profile.role === 'super_admin';
 
-            const { data, error } = await supabase.from('league_members').insert({
+            const { error } = await supabase.from('league_members').insert({
                 league_id: leagueId,
                 user_id: profile.id,
                 role: 'user',
                 status: isSuperAdmin ? 'approved' : 'pending'
-            }).select(); // Select to verify it actually returned data
+            });
 
             if (error) {
-                console.error("Supabase Insert Error:", error);
-                alert(`Failed to join league (DB Error): ${error.message} (${error.code})`);
+                alert(`Failed to join league: ${error.message}`);
                 return;
             }
-
-            console.log("Join Success:", data);
 
             // Optimistic Update
             const league = availableLeagues.find(l => l.id === leagueId);
@@ -107,8 +145,8 @@ export default function DashboardPage() {
                 setMyLeagues(prev => [{ ...league, role: 'user', status: isSuperAdmin ? 'approved' : 'pending' }, ...prev]);
             }
         } catch (err: any) {
-            console.error("Unexpected Error in handleJoin:", err);
-            alert(`Unexpected Error: ${err.message || 'Unknown error'}`);
+            console.error("Error in handleJoin:", err);
+            alert("Unexpected error joining league.");
         }
     };
 
@@ -119,7 +157,7 @@ export default function DashboardPage() {
             <header className="flex justify-between items-center mb-12 max-w-6xl mx-auto">
                 <div>
                     <h1 className="text-3xl font-bold text-primary">DuelManager</h1>
-                    <p className="text-gray-400">Welcome back, {profile?.first_name}</p>
+                    <p className="text-gray-400">Welcome back, {profile?.first_name || 'Duelist'}</p>
                 </div>
 
                 <div className="flex gap-4">
@@ -138,50 +176,81 @@ export default function DashboardPage() {
 
                 {/* MY LEAGUES */}
                 <section>
-                    <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                        <Trophy className="text-yellow-500" /> My Leagues
-                    </h2>
+                    <div className="flex justify-between items-center mb-4">
+                        <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                            <Trophy className="text-yellow-500" /> My Leagues
+                        </h2>
+                        {!isCreating && canCreateLeague && (
+                            <button
+                                onClick={() => setIsCreating(true)}
+                                className="px-3 py-1.5 bg-white/10 text-white rounded-lg text-sm hover:bg-white/20 transition-colors flex items-center gap-1"
+                            >
+                                <Plus size={16} /> Create League
+                            </button>
+                        )}
+                    </div>
+
+                    {isCreating && (
+                        <div className="mb-6 bg-surface border border-white/10 rounded-xl p-4 animate-in fade-in slide-in-from-top-2">
+                            <label className="block text-xs text-gray-500 mb-1">League Name</label>
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    value={newLeagueName}
+                                    onChange={e => setNewLeagueName(e.target.value)}
+                                    placeholder="e.g. Winter Cup 2024"
+                                    className="flex-1 bg-black/20 border border-white/10 rounded px-3 py-2 text-white focus:border-primary outline-none"
+                                    autoFocus
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setIsPublic(!isPublic)}
+                                    className={`px-3 py-2 rounded font-bold text-sm border transition-colors ${isPublic ? 'bg-primary/20 border-primary text-primary' : 'bg-black/20 border-white/10 text-gray-500'}`}
+                                >
+                                    {isPublic ? 'Public' : 'Private'}
+                                </button>
+                                <button
+                                    onClick={handleCreateLeague}
+                                    disabled={!newLeagueName.trim()}
+                                    className="bg-primary text-background px-3 rounded font-bold hover:bg-primary/90 disabled:opacity-50"
+                                >
+                                    <Check size={18} />
+                                </button>
+                                <button
+                                    onClick={() => setIsCreating(false)}
+                                    className="bg-white/10 text-white px-3 rounded hover:bg-white/20"
+                                >
+                                    <X size={18} />
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
                     {myLeagues.length === 0 ? (
-                        <div className="bg-surface border border-white/5 rounded-xl p-8 text-center">
-                            <p className="text-gray-500">You haven't joined any leagues yet.</p>
+                        <div className="text-gray-500 italic p-6 bg-surface border border-white/5 rounded-xl text-center">
+                            You haven't joined any leagues yet.
                         </div>
                     ) : (
-                        <div className="space-y-4">
-                            {myLeagues.map(l => (
-                                <div key={l.id} className="bg-surface border border-white/10 rounded-xl p-6 flex justify-between items-center group hover:border-primary/50 transition-colors">
-                                    <div>
-                                        <h3 className="text-white font-bold text-lg">{l.name}</h3>
-                                        <div className="flex flex-col gap-1 mt-1">
-                                            {l.status === 'pending' ? (
-                                                <span className="text-sm font-medium text-orange-400 flex items-center gap-1">
-                                                    ⏳ Pending Approval
+                        <div className="grid gap-3">
+                            {myLeagues.map(league => (
+                                <Link to={`/admin/leagues/${league.id}`} key={league.id} className="block bg-surface p-4 rounded-xl border border-white/5 hover:border-primary/50 transition-colors group">
+                                    <div className="flex justify-between items-center">
+                                        <div>
+                                            <h3 className="text-lg font-bold text-white group-hover:text-primary transition-colors">{league.name}</h3>
+                                            <div className="flex gap-2 mt-1">
+                                                <span className={`text-xs px-2 py-0.5 rounded capitalize ${league.role === 'admin' ? 'bg-yellow-500/10 text-yellow-500' : 'bg-blue-500/10 text-blue-500'}`}>
+                                                    {league.role}
                                                 </span>
-                                            ) : (
-                                                <p className={`text-sm font-medium capitalize flex items-center gap-1 
-                                                    ${l.role === 'admin' ? 'text-yellow-500' :
-                                                        l.role === 'co_admin' ? 'text-purple-500' :
-                                                            'text-green-500'}`}>
-                                                    {l.role === 'admin' && <Trophy size={14} />}
-                                                    {l.role === 'co_admin' && <Shield size={14} />}
-                                                    {l.role === 'co_admin' ? 'Co-Admin' : l.role === 'admin' ? 'League Admin' : 'User'}
-                                                </p>
-                                            )}
+                                                <span className={`text-xs px-2 py-0.5 rounded capitalize ${league.status === 'pending' ? 'bg-orange-500/10 text-orange-500' : 'bg-green-500/10 text-green-500'}`}>
+                                                    {league.status}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div className="text-gray-500 group-hover:translate-x-1 transition-transform">
+                                            →
                                         </div>
                                     </div>
-
-                                    {l.status === 'approved' ? (
-                                        <Link
-                                            to={`/admin/leagues/${l.id}`}
-                                            className="px-4 py-2 bg-white/5 rounded-lg text-sm text-gray-300 hover:bg-white/10 transition-colors"
-                                        >
-                                            Enter Lobby
-                                        </Link>
-                                    ) : (
-                                        <div className="px-4 py-2 bg-white/5 rounded-lg text-sm text-gray-500 italic cursor-not-allowed">
-                                            Waiting...
-                                        </div>
-                                    )}
-                                </div>
+                                </Link>
                             ))}
                         </div>
                     )}
@@ -216,6 +285,19 @@ export default function DashboardPage() {
                         </div>
                     )}
                 </section>
+
+                {canCreateLeague && (
+                    <section className="bg-gradient-to-r from-purple-900/20 to-blue-900/20 p-6 rounded-xl border border-white/10 text-center col-span-1 md:col-span-2">
+                        <h3 className="text-white font-bold mb-2">Want to start your own?</h3>
+                        <p className="text-sm text-gray-400 mb-4">Create a league and invite your friends to duel!</p>
+                        <button
+                            onClick={() => setIsCreating(true)}
+                            className="px-6 py-2 bg-primary text-background font-bold rounded-full hover:bg-primary/90 transition-transform hover:scale-105"
+                        >
+                            Create League
+                        </button>
+                    </section>
+                )}
 
             </main>
         </div>

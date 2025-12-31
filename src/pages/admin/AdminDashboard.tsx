@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import type { Database } from '../../types/database.types';
 import { Check, X, ShieldAlert, Loader2 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import LeagueManager from '../../components/admin/LeagueManager';
 import AdminNavbar from '../../components/admin/AdminNavbar';
 
@@ -12,10 +12,25 @@ type Profile = Database['public']['Tables']['profiles']['Row'];
 export default function AdminDashboard() {
     const [profiles, setProfiles] = useState<Profile[]>([]);
     const [loading, setLoading] = useState(true);
+    const navigate = useNavigate();
 
     // Fetch all profiles (RLS allows Super Admin to see all)
     const fetchProfiles = async () => {
         setLoading(true);
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (!user) {
+            navigate('/login');
+            return;
+        }
+
+        // Verify Super Admin
+        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+        if (profile?.role !== 'super_admin') {
+            navigate('/'); // Redirect unauthorized users
+            return;
+        }
+
         const { data, error } = await supabase
             .from('profiles')
             .select('*')

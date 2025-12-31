@@ -10,14 +10,6 @@ type League = Database['public']['Tables']['leagues']['Row'];
 type LeagueRole = 'admin' | 'co_admin' | 'user';
 type Tournament = Database['public']['Tables']['tournaments']['Row'];
 
-interface DeckDisplay {
-    id: string;
-    created_at: string;
-    profiles: { first_name: string; last_name: string; } | null;
-    archetypes: { name: string; cover_image_url: string; } | null;
-    user_id: string;
-}
-
 interface MemberDisplay {
     id: string; // league_member id
     user_id: string;
@@ -35,8 +27,7 @@ interface MemberDisplay {
 export default function LeagueDetailPage() {
     const { id } = useParams();
     const [league, setLeague] = useState<League | null>(null);
-    const [tournaments, setTournaments] = useState<Tournament[]>([]); // New State
-    const [decks, setDecks] = useState<DeckDisplay[]>([]);
+    const [tournaments, setTournaments] = useState<Tournament[]>([]);
     const [members, setMembers] = useState<MemberDisplay[]>([]);
     const [loading, setLoading] = useState(true);
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -56,15 +47,24 @@ export default function LeagueDetailPage() {
         if (user) {
             setCurrentUserId(user.id);
             // Check Global Role
-            const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-            setIsGlobalSuperAdmin(profile?.role === 'super_admin');
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('role')
+                .eq('id', user.id)
+                .single();
+
+            if (profile) {
+                setIsGlobalSuperAdmin(profile.role === 'super_admin');
+            }
 
             // Check League Role
-            const { data: member } = await supabase.from('league_members')
+            const { data: member } = await supabase
+                .from('league_members')
                 .select('role')
                 .eq('league_id', leagueId)
                 .eq('user_id', user.id)
                 .single();
+
             if (member) {
                 setCurrentLeagueRole(member.role);
             }
@@ -74,28 +74,13 @@ export default function LeagueDetailPage() {
         const { data: leagueData } = await supabase.from('leagues').select('*').eq('id', leagueId).single();
         if (leagueData) setLeague(leagueData);
 
-        // Fetch Tournaments (NEW)
+        // Fetch Tournaments
         const { data: tournamentData } = await supabase
             .from('tournaments')
             .select('*')
             .eq('league_id', leagueId)
             .order('date', { ascending: false });
         if (tournamentData) setTournaments(tournamentData);
-
-        // Fetch Decks
-        const { data: decksData } = await supabase
-            .from('decks')
-            .select(`
-                id,
-                created_at,
-                user_id,
-                profiles:user_id (first_name, last_name),
-                archetypes:archetype_id (name, cover_image_url)
-            `)
-            .eq('league_id', leagueId)
-            .order('created_at', { ascending: false });
-
-        if (decksData) setDecks(decksData as unknown as DeckDisplay[]);
 
         // Fetch Members
         const { data: membersData } = await supabase
@@ -135,38 +120,38 @@ export default function LeagueDetailPage() {
         }
     };
 
-    const handleRoleChange = async (memberId: string, newRole: LeagueRole) => {
-        console.log("DEBUG: handleRoleChange called for", memberId, "to", newRole);
-        // Removed native confirm to avoid browser blocking issues
-        // if (!confirm(...)) return;
+    const handleDeleteLeague = async () => {
+        if (!league) return;
+        if (!window.confirm(`Are you sure you want to delete "${league.name}"? This cannot be undone.`)) return;
 
-        // Optimistic Update
-        console.log("DEBUG: Applying optimistic update");
-        setMembers(prev => prev.map(m => m.id === memberId ? { ...m, role: newRole } : m));
-
-        const response = await supabase
-            .from('league_members')
-            .update({ role: newRole })
-            .eq('id', memberId)
-            .select(); // Force return of data to verify RLS visibility
-
-        console.log("DEBUG: Supabase Update Response:", response);
-        const { error, data } = response;
+        const { error } = await supabase
+            .from('leagues')
+            .delete()
+            .eq('id', league.id);
 
         if (error) {
-            console.error("DEBUG: Role Update Error details:", JSON.stringify(error, null, 2));
-            console.error(error);
-            alert(`Failed to update role: ${error.message} (${error.code})`);
-            fetchAllData(league!.id);
-        } else if (!data || data.length === 0) {
-            console.warn("DEBUG: Role Update succeeded but NO rows returned. RLS likely blocked the update.");
-            alert("Update appeared to fail (blocked by server permissions). Refreshing...");
+            alert("Failed to delete league: " + error.message);
+        } else {
+            // Redirect to User Dashboard
+            window.location.href = '/';
+        }
+    };
+
+    const handleRoleChange = async (memberId: string, newRole: LeagueRole) => {
+        setMembers(prev => prev.map(m => m.id === memberId ? { ...m, role: newRole } : m));
+
+        const { error } = await supabase
+            .from('league_members')
+            .update({ role: newRole })
+            .eq('id', memberId);
+
+        if (error) {
+            alert(`Failed to update role: ${error.message}`);
             fetchAllData(league!.id);
         }
     };
 
     const handleApprove = async (memberId: string) => {
-        // Optimistic
         setMembers(prev => prev.map(m => m.id === memberId ? { ...m, status: 'approved' } : m));
 
         const { error } = await supabase
@@ -175,15 +160,12 @@ export default function LeagueDetailPage() {
             .eq('id', memberId);
 
         if (error) {
-            console.error("Error approving:", error);
             alert("Failed to approve user.");
             fetchAllData(league!.id);
         }
     };
 
     const handleReject = async (memberId: string) => {
-        // if (!confirm("Reject this user request?")) return;
-        // Optimistic
         setMembers(prev => prev.filter(m => m.id !== memberId));
 
         const { error } = await supabase
@@ -192,62 +174,49 @@ export default function LeagueDetailPage() {
             .eq('id', memberId);
 
         if (error) {
-            console.error("Error rejecting:", error);
             alert("Failed to reject user.");
             fetchAllData(league!.id);
         }
     };
 
     const handleKick = async (memberId: string) => {
-        console.log("DEBUG: handleKick called for", memberId);
-        // Removed native confirm to avoid browser blocking issues
-        // if (!confirm(...)) return;
-
-        // Optimistic
-        console.log("DEBUG: Applying optimistic kick");
         setMembers(prev => prev.filter(m => m.id !== memberId));
 
-        const response = await supabase
+        const { error } = await supabase
             .from('league_members')
             .delete()
-            .eq('id', memberId)
-            .select();
-
-        console.log("DEBUG: Supabase Delete Response:", response);
-
-        const { error, data } = response;
+            .eq('id', memberId);
 
         if (error) {
-            console.error("DEBUG: Kick Error details:", JSON.stringify(error, null, 2));
-            console.error("Error kicking:", error);
-            alert(`Failed to kick member: ${error.message} (${error.code})`);
-            fetchAllData(league!.id);
-        } else if (!data || data.length === 0) {
-            console.warn("DEBUG: Kick succeeded but NO rows returned. RLS likely blocked the delete.");
-            alert("Kick appeared to fail (blocked by server permissions). Refreshing...");
+            alert(`Failed to kick member: ${error.message}`);
             fetchAllData(league!.id);
         }
     };
 
     // Permission Check Helper
     const canEditRole = (targetRole: LeagueRole) => {
-        if (isGlobalSuperAdmin) return true; // Super Admin can edit anyone
+        if (isGlobalSuperAdmin) return true;
         if (currentLeagueRole === 'admin') {
-            // League Admin can edit users and co-admins, but NOT other admins
             return targetRole !== 'admin';
         }
         return false;
     };
 
-    const activeMembers = members.filter(m => m.status === 'approved' || m.status === undefined); // Fallback for old data
+    const activeMembers = members.filter(m => m.status === 'approved' || m.status === undefined);
     const pendingMembers = members.filter(m => m.status === 'pending');
     const canManageRequests = isGlobalSuperAdmin || currentLeagueRole === 'admin' || currentLeagueRole === 'co_admin';
     const canManageTournaments = isGlobalSuperAdmin || currentLeagueRole === 'admin';
+    // Use type assertion for created_by until type is updated in codebase
+    const canDeleteLeague = isGlobalSuperAdmin || (currentUserId && (league as any)?.created_by === currentUserId);
+
+    const [tournamentTab, setTournamentTab] = useState<'active' | 'archive'>('active');
+
+    const filteredTournaments = tournaments.filter(t => {
+        if (tournamentTab === 'active') return t.status !== 'completed';
+        return t.status === 'completed';
+    });
 
     const handleDeleteTournament = async (tournamentId: string) => {
-        // if (!confirm("Are you sure you want to delete this tournament? This cannot be undone.")) return;
-
-        // Optimistic UI
         setTournaments(prev => prev.filter(t => t.id !== tournamentId));
 
         const { error } = await supabase
@@ -256,11 +225,11 @@ export default function LeagueDetailPage() {
             .eq('id', tournamentId);
 
         if (error) {
-            console.error("Error deleting tournament:", error);
             alert(`Failed to delete tournament: ${error.message}`);
             fetchAllData(league!.id);
         }
     };
+
 
     if (loading) return <div className="p-8 text-white min-h-screen bg-background">Loading League...</div>;
     if (!league) return <div className="p-8 text-white min-h-screen bg-background">League not found</div>;
@@ -269,7 +238,7 @@ export default function LeagueDetailPage() {
         <div className="min-h-screen bg-background pb-12">
             <AdminNavbar />
             <div className="max-w-6xl mx-auto p-8 relative">
-                <Link to="/admin" className="text-gray-400 hover:text-white flex items-center gap-2 mb-6">
+                <Link to="/" className="text-gray-400 hover:text-white flex items-center gap-2 mb-6">
                     <ArrowLeft size={20} /> Back to Dashboard
                 </Link>
 
@@ -285,25 +254,44 @@ export default function LeagueDetailPage() {
                             </div>
                         </div>
 
-                        {(isGlobalSuperAdmin || currentLeagueRole === 'admin') && (
-                            <button
-                                onClick={toggleVisibility}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${league.is_public
-                                    ? 'bg-blue-500/10 text-blue-500 border border-blue-500/50 hover:bg-blue-500/20'
-                                    : 'bg-orange-500/10 text-orange-500 border border-orange-500/50 hover:bg-orange-500/20'}`}
-                            >
-                                {league.is_public ? <Globe size={18} /> : <Lock size={18} />}
-                                {league.is_public ? 'Public' : 'Private'}
-                            </button>
-                        )}
+                        <div className="flex items-center gap-2">
+                            {canManageRequests && (
+                                <Link
+                                    to={`/admin/leagues/${league.id}/library`}
+                                    className="flex items-center gap-2 px-4 py-2 bg-white/5 text-gray-300 rounded-lg font-medium hover:bg-white/10 hover:text-white transition-colors border border-white/5"
+                                >
+                                    <Library size={18} /> Deck Library
+                                </Link>
+                            )}
+
+                            {(isGlobalSuperAdmin || currentLeagueRole === 'admin') && (
+                                <button
+                                    onClick={toggleVisibility}
+                                    className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${league.is_public
+                                        ? 'bg-blue-500/10 text-blue-500 border border-blue-500/50 hover:bg-blue-500/20'
+                                        : 'bg-orange-500/10 text-orange-500 border border-orange-500/50 hover:bg-orange-500/20'}`}
+                                >
+                                    {league.is_public ? <Globe size={18} /> : <Lock size={18} />}
+                                    {league.is_public ? 'Public' : 'Private'}
+                                </button>
+                            )}
+
+                            {canDeleteLeague && (
+                                <button
+                                    onClick={handleDeleteLeague}
+                                    className="px-3 py-2 bg-red-500/10 text-red-500 border border-red-500/50 hover:bg-red-500/20 rounded-lg transition-colors"
+                                    title="Delete League"
+                                >
+                                    <Trash2 size={18} />
+                                </button>
+                            )}
+                        </div>
                     </div>
                 </header>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-
-                    {/* LEFT COLUMN: TOURNAMENTS & DECKS */}
+                    {/* LEFT COLUMN */}
                     <div className="lg:col-span-2 space-y-8">
-
                         {/* TOURNAMENTS SECTION */}
                         <section className="bg-surface border border-white/5 rounded-xl p-6">
                             <div className="flex justify-between items-center mb-6">
@@ -320,13 +308,29 @@ export default function LeagueDetailPage() {
                                 )}
                             </div>
 
-                            {tournaments.length === 0 ? (
+                            {/* TABS */}
+                            <div className="flex border-b border-white/10 mb-4">
+                                <button
+                                    onClick={() => setTournamentTab('active')}
+                                    className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${tournamentTab === 'active' ? 'border-primary text-primary' : 'border-transparent text-gray-400 hover:text-white'}`}
+                                >
+                                    Active
+                                </button>
+                                <button
+                                    onClick={() => setTournamentTab('archive')}
+                                    className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${tournamentTab === 'archive' ? 'border-primary text-primary' : 'border-transparent text-gray-400 hover:text-white'}`}
+                                >
+                                    Archive
+                                </button>
+                            </div>
+
+                            {filteredTournaments.length === 0 ? (
                                 <div className="text-center py-8 text-gray-500 border border-dashed border-white/5 rounded-xl">
-                                    <p>No tournaments yet.</p>
+                                    <p>{tournamentTab === 'active' ? 'No active tournaments.' : 'No archived tournaments.'}</p>
                                 </div>
                             ) : (
                                 <div className="space-y-3">
-                                    {tournaments.map(t => (
+                                    {filteredTournaments.map(t => (
                                         <div key={t.id} className="flex items-center gap-2 bg-black/20 p-2 pr-4 rounded-lg border border-white/5 hover:border-primary/50 transition-colors group">
                                             <Link
                                                 to={`/admin/tournaments/${t.id}`}
@@ -337,11 +341,16 @@ export default function LeagueDetailPage() {
                                                     <div className="flex items-center gap-4 text-xs text-gray-400 mt-1">
                                                         <span className="flex items-center gap-1"><Calendar size={12} /> {new Date(t.date).toLocaleDateString()}</span>
                                                         <span className="bg-white/10 px-2 py-0.5 rounded text-gray-300">{t.format}</span>
+                                                        <span className={`px-2 py-0.5 rounded capitalize ${t.status === 'setup' ? 'bg-yellow-500/10 text-yellow-500' :
+                                                            t.status === 'active' ? 'bg-blue-500/10 text-blue-500' :
+                                                                'bg-green-500/10 text-green-500'
+                                                            }`}>
+                                                            {t.status === 'setup' ? 'Pending' : t.status === 'active' ? 'Running' : 'Completed'}
+                                                        </span>
                                                     </div>
                                                 </div>
                                             </Link>
 
-                                            {/* Action Buttons */}
                                             {canManageTournaments && (
                                                 <div className="flex items-center gap-2">
                                                     <Link
@@ -365,55 +374,11 @@ export default function LeagueDetailPage() {
                                 </div>
                             )}
                         </section>
-                        <section className="bg-surface border border-white/5 rounded-xl p-6">
-                            <div className="flex justify-between items-center mb-6">
-                                <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-                                    <Library className="text-primary" /> Registered Decks
-                                </h2>
-                                {canManageRequests && (
-                                    <Link
-                                        to={`/admin/leagues/${league.id}/library`}
-                                        className="px-4 py-2 bg-white/5 text-gray-300 rounded-lg hover:bg-white/10 hover:text-white transition-colors flex items-center gap-2 text-sm"
-                                    >
-                                        <Library size={16} /> Manage Library
-                                    </Link>
-                                )}
-                            </div>
-
-                            {decks.length === 0 ? (
-                                <div className="text-center py-12 text-gray-500 border-2 border-dashed border-white/5 rounded-xl">
-                                    <p>No decks assigned yet.</p>
-                                </div>
-                            ) : (
-                                <div className="grid gap-4">
-                                    {decks.map(deck => (
-                                        <div key={deck.id} className="bg-black/20 p-4 rounded-lg flex justify-between items-center border border-white/5">
-                                            <div className="flex items-center gap-4">
-                                                {deck.archetypes?.cover_image_url && (
-                                                    <img src={deck.archetypes.cover_image_url} alt="Cover" className="w-12 h-16 object-cover rounded" />
-                                                )}
-                                                <div>
-                                                    <h3 className="text-white font-bold">
-                                                        {deck.profiles ? `${deck.profiles.first_name} ${deck.profiles.last_name}` : 'Unknown User'}
-                                                    </h3>
-                                                    <p className="text-sm text-primary">{deck.archetypes?.name || 'Unknown Archetype'}</p>
-                                                </div>
-                                            </div>
-                                            <span className="text-xs bg-white/10 text-gray-400 px-2 py-1 rounded font-mono">
-                                                {new Date(deck.created_at).toLocaleDateString()}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </section>
                     </div>
 
                     {/* RIGHT COLUMN: MEMBERS */}
                     <div className="lg:col-span-1">
                         <section className="bg-surface border border-white/5 rounded-xl p-6 sticky top-6">
-
-                            {/* PENDING REQUESTS */}
                             {canManageRequests && pendingMembers.length > 0 && (
                                 <div className="mb-8 p-4 bg-orange-500/10 border border-orange-500/20 rounded-xl">
                                     <h3 className="text-sm font-bold text-orange-400 mb-3 uppercase tracking-wider">
@@ -510,8 +475,6 @@ export default function LeagueDetailPage() {
                                                 </div>
                                             ) : (
                                                 <div className="px-2">
-                                                    {/* If Super Admin, allow kicking other admins even if they can't demote them via this specific UI (or just rely on Global Power) */}
-                                                    {/* Actually, showEdit logic covers most cases. Special case: Super Admin kicking another Admin. */}
                                                     {isGlobalSuperAdmin && !isSelf && (
                                                         <button
                                                             onClick={() => handleKick(member.id)}
@@ -524,17 +487,14 @@ export default function LeagueDetailPage() {
                                                 </div>
                                             )}
                                         </div>
-
                                     );
                                 })}
-
                                 {activeMembers.length === 0 && (
                                     <div className="text-center text-gray-500 py-8">No active members.</div>
                                 )}
                             </div>
                         </section>
                     </div>
-
                 </div>
             </div>
         </div>

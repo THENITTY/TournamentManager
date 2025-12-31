@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../../../lib/supabase';
-import { ArrowLeft, Calendar, Users, Trophy, Swords, Trash2 } from 'lucide-react';
+import { ArrowLeft, Calendar, Users, Trophy, Swords, Trash2, Pencil } from 'lucide-react';
 import AdminNavbar from '../../../components/admin/AdminNavbar';
 import type { Database } from '../../../types/database.types';
 
@@ -9,37 +9,58 @@ import { generateRound1Pairings, calculateStandings, generateNextRoundPairings, 
 
 type Tournament = Database['public']['Tables']['tournaments']['Row'];
 
+type MatchWithPlayers = Omit<Database['public']['Tables']['matches']['Row'], 'score_p1' | 'score_p2' | 'winner_id'> & {
+    score_p1: number | null;
+    score_p2: number | null;
+    winner_id: string | null;
+    player1: { user: { first_name: string; last_name: string } | null } | null;
+    player2: { user: { first_name: string; last_name: string } | null } | null;
+};
+
+type ParticipantWithUser = Database['public']['Tables']['tournament_participants']['Row'] & {
+    user: { id: string; first_name: string; last_name: string; avatar_url: string | null } | null;
+    deck?: {
+        id: string;
+        archetypes: { name: string; cover_image_url: string } | null
+    } | null;
+};
+
+interface AvailableMember {
+    id: string;
+    first_name: string;
+    last_name: string;
+    avatar_url: string | null;
+}
+
 export default function TournamentDashboardPage() {
     const { id } = useParams();
     const [tournament, setTournament] = useState<Tournament | null>(null);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'overview' | 'standings' | 'pairings'>('overview');
 
-    // Participants State
-    const [participants, setParticipants] = useState<any[]>([]);
-
-    // Matches State
-    const [matches, setMatches] = useState<any[]>([]);
+    // Core Data State
+    const [matches, setMatches] = useState<MatchWithPlayers[]>([]);
+    const [participants, setParticipants] = useState<ParticipantWithUser[]>([]);
     const [standings, setStandings] = useState<ParticipantStats[]>([]);
+    const [viewRound, setViewRound] = useState<number>(1);
 
+    // Archetype Association State
+    const [archetypes, setArchetypes] = useState<Database['public']['Tables']['archetypes']['Row'][]>([]);
+    const [isDeckModalOpen, setIsDeckModalOpen] = useState(false);
+    const [selectedParticipantIdForDeck, setSelectedParticipantIdForDeck] = useState<string | null>(null);
+
+    // UI State
+    const [reportingMatch, setReportingMatch] = useState<MatchWithPlayers | null>(null);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-    const [availableMembers, setAvailableMembers] = useState<any[]>([]);
+    const [availableMembers, setAvailableMembers] = useState<AvailableMember[]>([]);
     const [addingPlayer, setAddingPlayer] = useState(false);
 
-    // Reporting State
-    const [reportingMatch, setReportingMatch] = useState<any | null>(null);
+    // Move fetch definitions up or use hoisting (functions are hoisted, but const arrow functions are not)
+    // We need to define them before useEffect or use useCallback.
 
-    useEffect(() => {
-        if (id) {
-            fetchTournament();
-            fetchParticipants();
-            fetchMatches();
-        }
-    }, [id]);
-
-    const fetchMatches = async () => {
+    const fetchMatches = useCallback(async () => {
         if (!id) return;
-        const { data, error } = await supabase
+        const { data } = await supabase
             .from('matches')
             .select(`
                 *,
@@ -53,32 +74,55 @@ export default function TournamentDashboardPage() {
             .eq('tournament_id', id)
             .order('created_at', { ascending: true });
 
-        if (data) setMatches(data);
-    };
+        if (data) setMatches(data as unknown as MatchWithPlayers[]);
+    }, [id]);
 
-    const fetchTournament = async () => {
-        const { data, error } = await supabase
+    const fetchArchetypes = useCallback(async (leagueId: string) => {
+        const { data } = await supabase
+            .from('archetypes')
+            .select('*')
+            .eq('league_id', leagueId)
+            .order('name', { ascending: true });
+
+        if (data) setArchetypes(data);
+    }, []);
+
+    const fetchTournament = useCallback(async () => {
+        const { data } = await supabase
             .from('tournaments')
             .select('*')
             .eq('id', id!)
             .single();
 
-        if (data) setTournament(data);
+        if (data) {
+            setTournament(data);
+            if (data.current_round) setViewRound(data.current_round);
+            fetchArchetypes(data.league_id);
+        }
         setLoading(false);
-    };
+    }, [id, fetchArchetypes]);
 
-    const fetchParticipants = async () => {
-        const { data, error } = await supabase
+    const fetchParticipants = useCallback(async () => {
+        const { data } = await supabase
             .from('tournament_participants')
             .select(`
                 *,
-                user:profiles(id, first_name, last_name, avatar_url)
+                user:profiles(id, first_name, last_name, avatar_url),
+                deck:decks(id, archetypes(name, cover_image_url))
             `)
             .eq('tournament_id', id!)
             .order('joined_at', { ascending: true });
 
-        if (data) setParticipants(data);
-    };
+        if (data) setParticipants(data as unknown as ParticipantWithUser[]);
+    }, [id]);
+
+    useEffect(() => {
+        if (id) {
+            fetchTournament();
+            fetchParticipants();
+            fetchMatches();
+        }
+    }, [id, fetchTournament, fetchParticipants, fetchMatches]);
 
     const fetchAvailableMembers = async () => {
         if (!tournament) return;
@@ -96,7 +140,7 @@ export default function TournamentDashboardPage() {
                 .map(m => m.profiles) // flatten
                 .filter(p => p && !participantIds.has(p.id)); // valid profile & not joined
 
-            setAvailableMembers(available);
+            setAvailableMembers(available as unknown as AvailableMember[]);
         }
     };
 
@@ -123,6 +167,87 @@ export default function TournamentDashboardPage() {
             setAvailableMembers(prev => prev.filter(m => m.id !== userId));
         }
         setAddingPlayer(false);
+    };
+
+    // Deck Assignment Logic
+    const openDeckSelection = (participantId: string) => {
+        setSelectedParticipantIdForDeck(participantId);
+        setIsDeckModalOpen(true);
+    };
+
+    const handleAssignDeck = async (archetypeId: string) => {
+        if (!selectedParticipantIdForDeck || !tournament) return;
+
+        // 1. Get Participant User ID
+        const participant = participants.find(p => p.id === selectedParticipantIdForDeck);
+        if (!participant || !participant.user_id) return;
+
+        // 2. Find Deck for this User + Archetype
+        let deckId: string | null = null;
+
+        const { data: existingDeck } = await supabase
+            .from('decks')
+            .select('id')
+            .eq('user_id', participant.user_id)
+            .eq('archetype_id', archetypeId)
+            .eq('league_id', tournament.league_id)
+            .maybeSingle();
+
+        if (existingDeck) {
+            deckId = existingDeck.id;
+        } else {
+            // 3. Create New Deck if not exists
+            const selectedArchetype = archetypes.find(a => a.id === archetypeId);
+            const { data: newDeck, error: createError } = await supabase
+                .from('decks')
+                .insert({
+                    user_id: participant.user_id,
+                    archetype_id: archetypeId,
+                    league_id: tournament.league_id,
+                    name: selectedArchetype?.name || 'New Deck',
+                    format: tournament.format
+                })
+                .select()
+                .single();
+
+            if (createError || !newDeck) {
+                alert("Failed to create deck: " + (createError?.message || "Unknown error"));
+                return;
+            }
+            deckId = newDeck.id;
+        }
+
+        // 4. Assign Deck to Participant
+        // Optimistic Update
+        setParticipants(prev => prev.map(p => {
+            if (p.id === selectedParticipantIdForDeck) {
+                const selectedArchetype = archetypes.find(a => a.id === archetypeId);
+                return {
+                    ...p,
+                    deck_id: deckId,
+                    deck: selectedArchetype ? {
+                        id: deckId!,
+                        archetypes: {
+                            name: selectedArchetype.name,
+                            cover_image_url: selectedArchetype.cover_image_url
+                        }
+                    } : null
+                };
+            }
+            return p;
+        }));
+
+        setIsDeckModalOpen(false);
+
+        const { error } = await supabase
+            .from('tournament_participants')
+            .update({ deck_id: deckId })
+            .eq('id', selectedParticipantIdForDeck);
+
+        if (error) {
+            alert("Failed to assign deck: " + error.message);
+            fetchParticipants(); // Revert
+        }
     };
 
     // Rounds Logic
@@ -159,18 +284,27 @@ export default function TournamentDashboardPage() {
             const stats = calculateStandings(participants, matches, tournament.current_round ?? 1);
             setStandings(stats);
         }
-    }, [participants, matches, tournament?.current_round]);
+    }, [participants, matches, tournament]);
 
-    // Next Round Logic
+    // Finish Tournament Modal State
+    const [showFinishModal, setShowFinishModal] = useState(false);
+    const [finishing, setFinishing] = useState(false);
+
+    // Next Round / Finish Logic
     const handleNextRound = async () => {
         if (!tournament) return;
 
-        // 1. Calculate latest standings (ensure we have them)
+        // Check for Tournament Completion scenario
+        if (tournament.current_round && tournament.total_rounds && tournament.current_round >= tournament.total_rounds) {
+            setShowFinishModal(true);
+            return;
+        }
+
+        // Standard Next Round Logic (Generate Pairings)
+        // 1. Calculate stats with current state (for pairings this is distinct from final standings persistence)
         const currentStats = calculateStandings(participants, matches, tournament.current_round ?? 1);
 
-        // 2. Update Database with these stats
-        // We can do a bulk upsert if Supabase supports it well, or Promise.all
-        // The `tournament_participants` table has: score, real_wins, omw, rank (we can assign rank by index)
+        // 2. Update Stats in DB (Incremental update for display)
         const updates = currentStats.map((p, index) => ({
             id: p.id,
             tournament_id: tournament.id,
@@ -178,37 +312,11 @@ export default function TournamentDashboardPage() {
             score: p.points,
             real_wins: p.realWins,
             omw: p.omw,
-            rank: index + 1 // 1-based rank
+            rank: index + 1
         }));
+        await supabase.from('tournament_participants').upsert(updates);
 
-        const { error: statsError } = await supabase
-            .from('tournament_participants')
-            .upsert(updates);
-
-        if (statsError) {
-            alert("Failed to update standings: " + statsError.message);
-            return;
-        }
-
-        // 3. Check for Tournament Completion
-        if (tournament.current_round && tournament.total_rounds && tournament.current_round >= tournament.total_rounds) {
-            // Finish Tournament
-            const { error: finishError } = await supabase
-                .from('tournaments')
-                .update({ status: 'completed' })
-                .eq('id', tournament.id);
-
-            if (finishError) {
-                alert("Failed to finish tournament: " + finishError.message);
-            } else {
-                fetchTournament();
-                setActiveTab('standings');
-                alert("Tournament Completed! Check Standings.");
-            }
-            return;
-        }
-
-        // 4. Generate Next Round Pairings
+        // 3. Generate Next Round Pairings
         const nextRound = (tournament.current_round ?? 0) + 1;
         const newPairings = generateNextRoundPairings(
             tournament.id,
@@ -217,16 +325,13 @@ export default function TournamentDashboardPage() {
             matches
         );
 
-        const { error: pairError } = await supabase
-            .from('matches')
-            .insert(newPairings);
-
+        const { error: pairError } = await supabase.from('matches').insert(newPairings);
         if (pairError) {
             alert("Failed to generate pairings: " + pairError.message);
             return;
         }
 
-        // 5. Update Tournament Round
+        // 4. Update Tournament Round
         const { error: roundError } = await supabase
             .from('tournaments')
             .update({ current_round: nextRound })
@@ -236,8 +341,69 @@ export default function TournamentDashboardPage() {
             alert("Failed to update round: " + roundError.message);
         } else {
             fetchTournament();
-            fetchMatches(); // Get new matches
+            fetchMatches();
             setActiveTab('pairings');
+        }
+    };
+
+    // Confirmed Finish Logic
+    const finishTournament = async () => {
+        if (!tournament) return;
+        setFinishing(true);
+
+        try {
+            // 1. Fetch FRESH data to guarantee accuracy before finalizing
+            const { data: freshMatches } = await supabase
+                .from('matches')
+                .select('*') // We need raw rows for util
+                .eq('tournament_id', tournament.id);
+
+            const { data: freshParticipants } = await supabase
+                .from('tournament_participants')
+                .select('*, user:profiles(id, first_name, last_name, avatar_url)')
+                .eq('tournament_id', tournament.id);
+
+            if (!freshMatches || !freshParticipants) throw new Error("Failed to fetch fresh data.");
+
+            // 2. Calculate Final Standings
+            const finalStats = calculateStandings(
+                freshParticipants as unknown as ParticipantWithUser[],
+                freshMatches,
+                tournament.total_rounds ?? tournament.current_round ?? 1
+            );
+
+            // 3. Persist Standings
+            const updates = finalStats.map((p, index) => ({
+                id: p.id,
+                tournament_id: tournament.id,
+                user_id: p.user_id,
+                score: p.points,
+                real_wins: p.realWins,
+                omw: p.omw,
+                rank: index + 1
+            }));
+
+            const { error: statsError } = await supabase.from('tournament_participants').upsert(updates);
+            if (statsError) throw statsError;
+
+            // 4. Mark Tournament Completed
+            const { error: finishError } = await supabase
+                .from('tournaments')
+                .update({ status: 'completed' })
+                .eq('id', tournament.id);
+
+            if (finishError) throw finishError;
+
+            // Success
+            setShowFinishModal(false);
+            fetchTournament(); // Refresh UI
+            setActiveTab('standings'); // Redirect to standings
+            // We can show a success toast here if we had one, or just let the UI reflect 'Completed'
+        } catch (error) {
+            const message = error instanceof Error ? error.message : "Unknown error";
+            alert("Error finishing tournament: " + message);
+        } finally {
+            setFinishing(false);
         }
     };
 
@@ -379,6 +545,38 @@ export default function TournamentDashboardPage() {
         }
     };
 
+    // Permissions State
+    const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
+    const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+    const [isGlobalSuperAdmin, setIsGlobalSuperAdmin] = useState(false);
+
+    useEffect(() => {
+        const fetchPermissions = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                setCurrentUserId(user.id);
+            }
+            if (user && tournament) {
+                // Check Global Role
+                const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+                if (profile) setIsGlobalSuperAdmin(profile.role === 'super_admin');
+
+                // Check League Role
+                const { data: member } = await supabase.from('league_members')
+                    .select('role')
+                    .eq('league_id', tournament.league_id)
+                    .eq('user_id', user.id)
+                    .single();
+                if (member) {
+                    setCurrentUserRole(member.role);
+                }
+            }
+        };
+        fetchPermissions();
+    }, [tournament]);
+
+    const canManageTournament = isGlobalSuperAdmin || currentUserRole === 'admin' || currentUserRole === 'co_admin';
+
     if (loading) return <div className="p-8 text-white">Loading Tournament...</div>;
     if (!tournament) return <div className="p-8 text-white">Tournament not found</div>;
 
@@ -456,7 +654,7 @@ export default function TournamentDashboardPage() {
                                         </div>
                                         <div className="flex justify-between text-sm items-center">
                                             <span className="text-gray-400">Total Rounds</span>
-                                            {tournament.status === 'setup' ? (
+                                            {tournament.status === 'setup' && canManageTournament ? (
                                                 tournament.format === 'Swiss' ? (
                                                     <select
                                                         value={totalRounds}
@@ -492,7 +690,7 @@ export default function TournamentDashboardPage() {
                                         )}
                                     </div>
 
-                                    {tournament.status === 'setup' && (
+                                    {tournament.status === 'setup' && canManageTournament && (
                                         <div className="mt-8 pt-6 border-t border-white/5">
                                             <button
                                                 className="w-full py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-500 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -523,7 +721,7 @@ export default function TournamentDashboardPage() {
                                         <h3 className="text-lg font-bold text-white flex items-center gap-2">
                                             <Users className="text-primary" /> Registered Players
                                         </h3>
-                                        {tournament.status === 'setup' && (
+                                        {tournament.status === 'setup' && canManageTournament && (
                                             <button
                                                 onClick={openAddModal}
                                                 className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-sm rounded-lg transition-colors"
@@ -550,7 +748,7 @@ export default function TournamentDashboardPage() {
                                                         </div>
                                                         <span className="text-white font-medium">{p.user ? `${p.user.first_name} ${p.user.last_name}` : "Unknown User"}</span>
                                                     </div>
-                                                    {tournament.status === 'setup' && (
+                                                    {tournament.status === 'setup' && canManageTournament && (
                                                         <button
                                                             onClick={() => openDeleteModal(p.id)}
                                                             className="text-gray-500 hover:text-red-500 p-2"
@@ -569,6 +767,27 @@ export default function TournamentDashboardPage() {
 
                     {activeTab === 'pairings' && (
                         <div className="space-y-6">
+                            {/* Round Selector */}
+                            {matches.length > 0 && (
+                                <div className="flex items-center gap-2 mb-4 bg-surface border border-white/5 p-2 rounded-lg w-fit">
+                                    <span className="text-gray-400 text-sm ml-2">View Round:</span>
+                                    <div className="flex gap-1">
+                                        {[...Array(tournament.current_round || 0)].map((_, i) => {
+                                            const r = i + 1;
+                                            return (
+                                                <button
+                                                    key={r}
+                                                    onClick={() => setViewRound(r)}
+                                                    className={`px-3 py-1 rounded text-sm font-bold transition-colors ${viewRound === r ? 'bg-primary text-background' : 'bg-black/40 text-gray-400 hover:text-white'}`}
+                                                >
+                                                    {r}
+                                                </button>
+                                            )
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
                             {matches.length === 0 ? (
                                 <div className="text-center text-gray-500 py-12 border border-dashed border-white/5 rounded-xl">
                                     <Swords size={48} className="mx-auto mb-4 opacity-50" />
@@ -578,7 +797,7 @@ export default function TournamentDashboardPage() {
                             ) : (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     {matches
-                                        .filter(m => m.round_number === tournament.current_round)
+                                        .filter(m => m.round_number === viewRound)
                                         .map((match) => (
                                             <div key={match.id} className="bg-surface border border-white/10 rounded-xl p-4 flex flex-col gap-4">
                                                 {/* Header */}
@@ -611,7 +830,7 @@ export default function TournamentDashboardPage() {
 
 
                                                 {/* REPORT BUTTON */}
-                                                {!match.is_bye && match.score_p1 === null && (
+                                                {!match.is_bye && match.score_p1 === null && canManageTournament && tournament.status !== 'completed' && match.round_number === tournament.current_round && (
                                                     <button
                                                         onClick={() => setReportingMatch(match)}
                                                         className="w-full py-2 bg-white/10 hover:bg-white/20 text-white font-medium rounded-lg text-sm transition-colors mt-2"
@@ -622,8 +841,17 @@ export default function TournamentDashboardPage() {
 
                                                 {/* COMPLETED STATUS */}
                                                 {!match.is_bye && match.score_p1 !== null && (
-                                                    <div className="text-center text-xs text-green-400 font-bold uppercase tracking-wider mt-2 border-t border-white/5 pt-2">
-                                                        Completed
+                                                    <div className="flex items-center justify-center gap-2 mt-2 border-t border-white/5 pt-2">
+                                                        <span className="text-xs text-green-400 font-bold uppercase tracking-wider">Completed</span>
+                                                        {canManageTournament && tournament.status !== 'completed' && (
+                                                            <button
+                                                                onClick={() => setReportingMatch(match)}
+                                                                className="p-1 text-gray-500 hover:text-white hover:bg-white/10 rounded transition-colors"
+                                                                title="Edit Result"
+                                                            >
+                                                                <Pencil size={12} />
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 )}
                                             </div>
@@ -634,7 +862,7 @@ export default function TournamentDashboardPage() {
                             {/* NEXT ROUND ACTION */}
                             {matches.length > 0 && matches
                                 .filter(m => m.round_number === tournament.current_round)
-                                .every(m => m.score_p1 !== null || m.is_bye) && (
+                                .every(m => m.score_p1 !== null || m.is_bye) && canManageTournament && (
                                     <div className="mt-8 border-t border-white/10 pt-6 text-center">
                                         <div className="mb-4 text-green-400 text-sm font-bold uppercase tracking-wider flex items-center justify-center gap-2">
                                             <Trophy size={16} /> All matches completed
@@ -661,6 +889,7 @@ export default function TournamentDashboardPage() {
                                         <tr>
                                             <th className="p-4">Rank</th>
                                             <th className="p-4">Player</th>
+                                            <th className="p-4">Deck</th>
                                             <th className="p-4 text-center">Points</th>
                                             <th className="p-4 text-center">Real Wins</th>
                                             <th className="p-4 text-center">OMW%</th>
@@ -669,25 +898,66 @@ export default function TournamentDashboardPage() {
                                     <tbody className="divide-y divide-white/5">
                                         {standings.length === 0 ? (
                                             <tr>
-                                                <td colSpan={5} className="p-8 text-center text-gray-500">
+                                                <td colSpan={6} className="p-8 text-center text-gray-500">
                                                     No standings data available yet.
                                                 </td>
                                             </tr>
                                         ) : (
-                                            standings.map((p, i) => (
-                                                <tr key={p.id} className="hover:bg-white/5 transition-colors">
-                                                    <td className="p-4 font-mono text-gray-500">#{i + 1}</td>
-                                                    <td className="p-4 font-bold text-white flex items-center gap-3">
-                                                        <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary text-xs font-bold">
-                                                            {p.user?.first_name?.charAt(0).toUpperCase() || "?"}{p.user?.last_name?.charAt(0).toUpperCase() || "?"}
-                                                        </div>
-                                                        {p.user?.first_name} {p.user?.last_name}
-                                                    </td>
-                                                    <td className="p-4 text-center font-mono font-bold text-primary">{p.points}</td>
-                                                    <td className="p-4 text-center font-mono text-gray-300">{p.realWins}</td>
-                                                    <td className="p-4 text-center font-mono text-gray-500">{(p.omw * 100).toFixed(1)}%</td>
-                                                </tr>
-                                            ))
+                                            standings.map((p, i) => {
+                                                const pDetails = participants.find(part => part.user_id === p.user_id);
+                                                const deck = pDetails?.deck;
+                                                const canEditDeck = isGlobalSuperAdmin || currentUserRole === 'admin' || currentUserRole === 'co_admin' || currentUserId === p.user_id;
+
+                                                return (
+                                                    <tr key={p.id} className="hover:bg-white/5 transition-colors">
+                                                        <td className="p-4 font-mono text-gray-500">#{i + 1}</td>
+                                                        <td className="p-4 font-bold text-white flex items-center gap-3">
+                                                            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary text-xs font-bold">
+                                                                {p.user?.first_name?.charAt(0).toUpperCase() || "?"}{p.user?.last_name?.charAt(0).toUpperCase() || "?"}
+                                                            </div>
+                                                            {p.user?.first_name} {p.user?.last_name}
+                                                        </td>
+                                                        <td className="p-4">
+                                                            {deck ? (
+                                                                <div
+                                                                    className={`flex items-center gap-3 ${canEditDeck ? 'cursor-pointer hover:opacity-80' : ''}`}
+                                                                    onClick={() => canEditDeck && pDetails && openDeckSelection(pDetails.id)}
+                                                                >
+                                                                    {deck.archetypes?.cover_image_url ? (
+                                                                        <div className="w-12 h-12 rounded-lg overflow-hidden shadow ring-1 ring-white/10 relative">
+                                                                            <img
+                                                                                src={deck.archetypes.cover_image_url}
+                                                                                alt="Deck"
+                                                                                className="w-full h-full object-cover object-[center_25%] scale-150"
+                                                                            />
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="w-12 h-12 bg-gray-800 rounded-lg flex items-center justify-center text-xs text-gray-500 border border-white/10">?</div>
+                                                                    )}
+                                                                    <div>
+                                                                        <div className="text-sm font-bold text-white max-w-[150px] truncate">{deck.archetypes?.name || 'Unknown'}</div>
+                                                                    </div>
+                                                                </div>
+                                                            ) : (
+                                                                canEditDeck && pDetails ? (
+                                                                    <button
+                                                                        onClick={() => openDeckSelection(pDetails.id)}
+                                                                        className="w-10 h-14 border border-dashed border-white/20 rounded flex items-center justify-center text-gray-400 hover:text-white hover:border-white/50 transition-colors"
+                                                                        title="Add Deck"
+                                                                    >
+                                                                        +
+                                                                    </button>
+                                                                ) : (
+                                                                    <span className="text-gray-600 text-sm">-</span>
+                                                                )
+                                                            )}
+                                                        </td>
+                                                        <td className="p-4 text-center font-mono font-bold text-primary">{p.points}</td>
+                                                        <td className="p-4 text-center font-mono text-gray-300">{p.realWins}</td>
+                                                        <td className="p-4 text-center font-mono text-gray-500">{(p.omw * 100).toFixed(1)}%</td>
+                                                    </tr>
+                                                )
+                                            })
                                         )}
                                     </tbody>
                                 </table>
@@ -697,38 +967,80 @@ export default function TournamentDashboardPage() {
                 </div>
             </div>
 
+            {/* FINISH TOURNAMENT CONFIRMATION MODAL */}
+            {showFinishModal && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-surface border border-white/10 rounded-xl w-full max-w-md p-6 relative">
+                        <button
+                            onClick={() => setShowFinishModal(false)}
+                            className="absolute top-4 right-4 text-gray-400 hover:text-white"
+                        >
+                            <span className="text-2xl">&times;</span>
+                        </button>
+
+                        <div className="text-center mb-6">
+                            <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-4 text-primary">
+                                <Trophy size={32} />
+                            </div>
+                            <h3 className="text-xl font-bold text-white mb-2">Finish Tournament?</h3>
+                            <p className="text-gray-400 text-sm">
+                                All rounds have been played. This will finalize the standings and archive the tournament.
+                            </p>
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setShowFinishModal(false)}
+                                className="flex-1 py-3 text-gray-400 hover:text-white font-medium hover:bg-white/5 rounded-lg transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={finishTournament}
+                                disabled={finishing}
+                                className="flex-1 py-3 bg-primary text-black font-bold rounded-lg hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
+                            >
+                                {finishing ? "Finalizing..." : "Confirm Finish"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* ADD PLAYER MODAL */}
             {isAddModalOpen && (
                 <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-surface border border-white/10 rounded-xl w-full max-w-md p-6 relative">
+                    <div className="bg-surface border border-white/10 rounded-xl w-full max-w-md p-6 relative flex flex-col max-h-[80vh]">
                         <button
                             onClick={() => setIsAddModalOpen(false)}
                             className="absolute top-4 right-4 text-gray-400 hover:text-white"
                         >
                             <span className="text-2xl">&times;</span>
                         </button>
+                        <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                            <Users className="text-primary" /> Add Player
+                        </h3>
 
-                        <h3 className="text-xl font-bold text-white mb-4">Add Participant</h3>
-                        <p className="text-gray-400 text-sm mb-6">Select a league member to add to this tournament.</p>
-
-                        <div className="space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar">
+                        <div className="flex-1 overflow-y-auto space-y-2 pr-2">
                             {availableMembers.length === 0 ? (
-                                <div className="text-center text-gray-500 py-8">
-                                    No eligible members found.
-                                </div>
+                                <p className="text-gray-500 text-center py-4">No available members found.</p>
                             ) : (
-                                availableMembers.map(member => (
-                                    <button
-                                        key={member.id}
-                                        onClick={() => handleAddPlayer(member.id)}
-                                        disabled={addingPlayer}
-                                        className="w-full flex items-center gap-3 p-3 bg-black/20 hover:bg-primary/20 hover:border-primary/50 border border-transparent rounded-lg transition-all group text-left"
-                                    >
-                                        <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold text-white group-hover:bg-primary group-hover:text-black">
-                                            {member.first_name?.charAt(0).toUpperCase() || "?"}{member.last_name?.charAt(0).toUpperCase() || "?"}
+                                availableMembers.map(m => (
+                                    <div key={m.id} className="flex justify-between items-center p-3 bg-black/20 rounded-lg">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-primary text-xs font-bold">
+                                                {m.first_name?.[0]}{m.last_name?.[0]}
+                                            </div>
+                                            <span className="text-white font-medium">{m.first_name} {m.last_name}</span>
                                         </div>
-                                        <span className="text-white group-hover:text-primary transition-colors">{member.first_name} {member.last_name}</span>
-                                    </button>
+                                        <button
+                                            onClick={() => handleAddPlayer(m.id)}
+                                            disabled={addingPlayer}
+                                            className="px-3 py-1 bg-primary/20 text-primary hover:bg-primary/30 rounded text-sm transition-colors"
+                                        >
+                                            Add
+                                        </button>
+                                    </div>
                                 ))
                             )}
                         </div>
@@ -736,24 +1048,25 @@ export default function TournamentDashboardPage() {
                 </div>
             )}
 
-            {/* DELETE CONFIRMATION MODAL */}
+            {/* DELETE PLAYER MODAL */}
             {playerToDelete && (
                 <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-surface border border-white/10 rounded-xl w-full max-w-md p-6 relative">
-                        <h3 className="text-xl font-bold text-white mb-4">Remove Player?</h3>
+                    <div className="bg-surface border border-white/10 rounded-xl w-full max-w-sm p-6 relative text-center">
+                        <Trash2 size={48} className="mx-auto mb-4 text-red-500 opacity-80" />
+                        <h3 className="text-xl font-bold text-white mb-2">Remove Player?</h3>
                         <p className="text-gray-400 text-sm mb-6">
-                            Are you sure you want to remove this player from the tournament? This action cannot be undone if the tournament has started (but it hasn't).
+                            Are you sure you want to remove this player? This might affect pairings if the tournament started.
                         </p>
-                        <div className="flex justify-end gap-3">
+                        <div className="flex gap-3">
                             <button
                                 onClick={() => setPlayerToDelete(null)}
-                                className="px-4 py-2 text-gray-400 hover:text-white font-medium"
+                                className="flex-1 py-2 text-gray-400 hover:text-white font-medium hover:bg-white/5 rounded-lg transition-colors"
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={confirmRemovePlayer}
-                                className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-bold rounded-lg transition-colors"
+                                className="flex-1 py-2 bg-red-500 text-white font-bold rounded-lg hover:bg-red-600 transition-colors"
                             >
                                 Remove
                             </button>
@@ -762,6 +1075,51 @@ export default function TournamentDashboardPage() {
                 </div>
             )}
 
+            {/* DECK SELECTION MODAL */}
+            {isDeckModalOpen && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-surface border border-white/10 rounded-xl w-full max-w-2xl p-6 relative max-h-[80vh] flex flex-col">
+                        <button
+                            onClick={() => setIsDeckModalOpen(false)}
+                            className="absolute top-4 right-4 text-gray-400 hover:text-white"
+                        >
+                            <span className="text-2xl">&times;</span>
+                        </button>
+
+                        <h3 className="text-xl font-bold text-white mb-4">Select Deck for Tournament</h3>
+
+                        <div className="flex-1 overflow-y-auto grid grid-cols-2 gap-4 p-2">
+                            {archetypes.map(arch => (
+                                <div
+                                    key={arch.id}
+                                    onClick={() => handleAssignDeck(arch.id)}
+                                    className="bg-black/30 border border-white/5 rounded-lg p-3 cursor-pointer hover:border-primary transition-all flex items-center gap-3"
+                                >
+                                    {arch.cover_image_url ? (
+                                        <div className="w-16 h-16 rounded-xl overflow-hidden shadow relative border border-white/10 shrink-0">
+                                            <img
+                                                src={arch.cover_image_url}
+                                                alt="Cover"
+                                                className="w-full h-full object-cover object-[center_25%] scale-150"
+                                            />
+                                        </div>
+                                    ) : (
+                                        <div className="w-16 h-16 bg-gray-800 rounded-xl flex items-center justify-center shrink-0">?</div>
+                                    )}
+                                    <div>
+                                        <div className="font-bold text-white text-sm">{arch.name}</div>
+                                    </div>
+                                </div>
+                            ))}
+                            {archetypes.length === 0 && (
+                                <div className="col-span-2 text-center text-gray-500 py-8">
+                                    No deck types available in this league.
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
             {/* REPORT MATCH MODAL */}
             {reportingMatch && (
                 <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -798,6 +1156,45 @@ export default function TournamentDashboardPage() {
                                 className="w-full py-3 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500 text-red-500 font-bold rounded-lg transition-all"
                             >
                                 Double Loss
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* FINISH TOURNAMENT CONFIRMATION MODAL */}
+            {showFinishModal && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-surface border border-white/10 rounded-xl w-full max-w-md p-6 relative">
+                        <button
+                            onClick={() => setShowFinishModal(false)}
+                            className="absolute top-4 right-4 text-gray-400 hover:text-white"
+                        >
+                            <span className="text-2xl">&times;</span>
+                        </button>
+
+                        <div className="text-center mb-6">
+                            <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-4 text-primary">
+                                <Trophy size={32} />
+                            </div>
+                            <h3 className="text-xl font-bold text-white mb-2">Finish Tournament?</h3>
+                            <p className="text-gray-400 text-sm">
+                                All rounds have been played. This will finalize the standings and archive the tournament.
+                            </p>
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setShowFinishModal(false)}
+                                className="flex-1 py-3 text-gray-400 hover:text-white font-medium hover:bg-white/5 rounded-lg transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={finishTournament}
+                                disabled={finishing}
+                                className="flex-1 py-3 bg-primary text-black font-bold rounded-lg hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
+                            >
+                                {finishing ? "Finalizing..." : "Confirm Finish"}
                             </button>
                         </div>
                     </div>

@@ -1,4 +1,5 @@
 
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { LogOut, Shield, Home, LayoutDashboard } from 'lucide-react';
@@ -6,6 +7,18 @@ import { LogOut, Shield, Home, LayoutDashboard } from 'lucide-react';
 export default function AdminNavbar() {
     const navigate = useNavigate();
     const location = useLocation();
+    const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+
+    useEffect(() => {
+        const checkRole = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const { data } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+                setIsSuperAdmin(data?.role === 'super_admin');
+            }
+        };
+        checkRole();
+    }, []);
 
     const handleLogout = async () => {
         await supabase.auth.signOut();
@@ -23,12 +36,14 @@ export default function AdminNavbar() {
                 </div>
 
                 <div className="flex items-center gap-1">
-                    <Link
-                        to="/admin"
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${isActive('/admin') ? 'bg-primary/10 text-primary' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
-                    >
-                        <LayoutDashboard size={16} /> Dashboard
-                    </Link>
+                    {isSuperAdmin && (
+                        <Link
+                            to="/admin"
+                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${isActive('/admin') ? 'bg-primary/10 text-primary' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+                        >
+                            <LayoutDashboard size={16} /> Dashboard
+                        </Link>
+                    )}
                     {/* Add more global links here if needed */}
                 </div>
             </div>

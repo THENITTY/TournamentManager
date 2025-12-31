@@ -259,6 +259,7 @@ export interface Database {
                     tournament_id: string
                     user_id: string
                     deck_name: string | null
+                    deck_id: string | null
                     score: number
                     real_wins: number
                     omw: number
@@ -271,6 +272,7 @@ export interface Database {
                     tournament_id: string
                     user_id: string
                     deck_name?: string | null
+                    deck_id?: string | null
                     score?: number
                     real_wins?: number
                     omw?: number
@@ -283,6 +285,7 @@ export interface Database {
                     tournament_id?: string
                     user_id?: string
                     deck_name?: string | null
+                    deck_id?: string | null
                     score?: number
                     real_wins?: number
                     omw?: number
