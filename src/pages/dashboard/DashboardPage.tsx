@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import type { Database } from '../../types/database.types';
 import { Link, useNavigate } from 'react-router-dom';
-import { Trophy, LogOut, Search, Users, Shield, Plus, Check, X, User, Edit } from 'lucide-react';
+import { Trophy, LogOut, Search, Users, Shield, Plus, Check, X, User } from 'lucide-react';
 import ProfileModal from '../../components/dashboard/ProfileModal';
 
 type BaseLeague = Database['public']['Tables']['leagues']['Row'];
@@ -170,12 +170,25 @@ export default function DashboardPage() {
                     <p className="text-gray-400">Welcome back, {profile?.first_name || 'Duelist'}</p>
                 </div>
 
-                <div className="flex gap-4">
+                <div className="flex items-center gap-4">
                     {profile?.role === 'super_admin' && (
-                        <Link to="/admin" className="px-4 py-2 border border-primary/50 text-primary rounded-lg hover:bg-primary/10 transition-colors flex items-center gap-2">
+                        <Link to="/admin" className="px-4 py-2 border border-primary/50 text-primary rounded-lg hover:bg-primary/10 transition-colors flex items-center gap-2 hidden md:flex">
                             <Shield size={16} /> Admin Panel
                         </Link>
                     )}
+
+                    <button
+                        onClick={() => setIsProfileModalOpen(true)}
+                        className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center overflow-hidden border border-white/10 hover:border-primary/50 transition-colors"
+                        title="Edit Profile"
+                    >
+                        {profile?.avatar_url ? (
+                            <img src={profile.avatar_url} alt="Profile" className="w-full h-full object-cover" />
+                        ) : (
+                            <User className="text-gray-400" size={20} />
+                        )}
+                    </button>
+
                     <button onClick={() => supabase.auth.signOut()} className="p-2 text-gray-500 hover:text-white" title="Sign Out">
                         <LogOut />
                     </button>
@@ -271,34 +284,7 @@ export default function DashboardPage() {
 
                 {/* RIGHT COLUMN: PROFILE & AVAILABLE LEAGUES */}
                 <div className="space-y-8">
-                    {/* YOUR PROFILE */}
-                    <section className="bg-surface border border-white/5 rounded-xl p-6 relative group">
-                        <div className="flex justify-between items-start">
-                            <div className="flex items-center gap-4">
-                                <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center overflow-hidden border-2 border-primary/20">
-                                    {profile?.avatar_url ? (
-                                        <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
-                                    ) : (
-                                        <User className="text-gray-400" size={32} />
-                                    )}
-                                </div>
-                                <div>
-                                    <h2 className="text-xl font-bold text-white">{profile?.first_name} {profile?.last_name}</h2>
-                                    <p className="text-sm text-gray-400 capitalize flex items-center gap-1">
-                                        {profile?.role === 'super_admin' ? <Shield size={12} className="text-red-500" /> : <User size={12} />}
-                                        {profile?.role?.replace('_', ' ')}
-                                    </p>
-                                </div>
-                            </div>
-                            <button
-                                onClick={() => setIsProfileModalOpen(true)}
-                                className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-                                title="Edit Profile"
-                            >
-                                <Edit size={18} />
-                            </button>
-                        </div>
-                    </section>
+
 
                     {/* AVAILABLE LEAGUES */}
                     <section>

@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../../../lib/supabase';
 import type { Database } from '../../../types/database.types';
-import { ArrowLeft, Users, Calendar, Library, Globe, Lock, MoreHorizontal, Trophy, Shield, User, Trash2 } from 'lucide-react';
+import { ArrowLeft, Users, Calendar, Library, Globe, Lock, MoreHorizontal, Trophy, Shield, User, Trash2, Edit, Check, X } from 'lucide-react';
 import AdminNavbar from '../../../components/admin/AdminNavbar';
 
 type League = Database['public']['Tables']['leagues']['Row'];
@@ -36,9 +36,19 @@ export default function LeagueDetailPage() {
     const [isGlobalSuperAdmin, setIsGlobalSuperAdmin] = useState(false);
     const [currentLeagueRole, setCurrentLeagueRole] = useState<LeagueRole | null>(null);
 
+    // Name Editing
+    const [isEditingName, setIsEditingName] = useState(false);
+    const [editedName, setEditedName] = useState('');
+
     useEffect(() => {
         if (id) fetchAllData(id);
     }, [id]);
+
+    useEffect(() => {
+        if (league) {
+            setEditedName(league.name);
+        }
+    }, [league]);
 
     const fetchAllData = async (leagueId: string) => {
         setLoading(true);
@@ -134,6 +144,32 @@ export default function LeagueDetailPage() {
         } else {
             // Redirect to User Dashboard
             window.location.href = '/';
+        }
+    };
+
+    const handleUpdateName = async () => {
+        if (!league || !editedName.trim()) return;
+
+        const previousName = league.name;
+        // Optimistic update
+        setLeague({ ...league, name: editedName });
+        setIsEditingName(false);
+
+        const { data, error } = await supabase
+            .from('leagues')
+            .update({ name: editedName })
+            .eq('id', league.id)
+            .select();
+
+        if (error) {
+            alert("Failed to update league name: " + error.message);
+            setLeague({ ...league, name: previousName });
+            setEditedName(previousName);
+        } else if (!data || data.length === 0) {
+            // No rows updated (likely RLS)
+            alert("Permission denied or League not found");
+            setLeague({ ...league, name: previousName });
+            setEditedName(previousName);
         }
     };
 
@@ -245,7 +281,53 @@ export default function LeagueDetailPage() {
                 <header className="mb-8 p-6 bg-surface border border-white/5 rounded-xl">
                     <div className="flex justify-between items-start">
                         <div>
-                            <h1 className="text-4xl font-bold text-white mb-2">{league.name}</h1>
+                            {(isGlobalSuperAdmin || currentLeagueRole === 'admin') && (
+                                <>
+                                    {isEditingName ? (
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <input
+                                                type="text"
+                                                value={editedName}
+                                                onChange={(e) => setEditedName(e.target.value)}
+                                                className="text-4xl font-bold text-white bg-black/40 border border-white/10 rounded px-2 py-1 outline-none focus:border-primary w-full max-w-md"
+                                                autoFocus
+                                            />
+                                            <button
+                                                onClick={handleUpdateName}
+                                                className="p-2 bg-primary text-background rounded-lg hover:bg-primary/90 transition-colors"
+                                                title="Save Name"
+                                            >
+                                                <Check size={24} />
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    setIsEditingName(false);
+                                                    setEditedName(league.name);
+                                                }}
+                                                className="p-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors"
+                                                title="Cancel"
+                                            >
+                                                <X size={24} />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <h1 className="text-4xl font-bold text-white mb-2 flex items-center gap-3 group">
+                                            {league.name}
+                                            <button
+                                                onClick={() => setIsEditingName(true)}
+                                                className="text-gray-500 hover:text-white transition-colors p-1"
+                                                title="Edit Name"
+                                            >
+                                                <Edit size={24} />
+                                            </button>
+                                        </h1>
+                                    )}
+                                </>
+                            )}
+                            {!(isGlobalSuperAdmin || currentLeagueRole === 'admin') && (
+                                <h1 className="text-4xl font-bold text-white mb-2">{league.name}</h1>
+                            )}
+
                             <div className="flex items-center gap-4 text-gray-400">
                                 <span className="flex items-center gap-1"><Calendar size={16} /> {new Date(league.created_at).toLocaleDateString()}</span>
                                 <span className={`px-2 py-0.5 rounded text-sm capitalize ${league.status === 'ongoing' ? 'bg-green-500/20 text-green-500' : 'bg-gray-500/20'}`}>
@@ -496,7 +578,7 @@ export default function LeagueDetailPage() {
                         </section>
                     </div>
                 </div>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 }
