@@ -4,6 +4,7 @@ import { supabase } from '../../../lib/supabase';
 import { ArrowLeft, Calendar, Trophy, Users } from 'lucide-react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import AdminNavbar from '../../../components/admin/AdminNavbar';
+import { showError } from '../../../lib/toastUtils';
 
 export default function CreateTournamentPage() {
     const { leagueId } = useParams();
@@ -34,8 +35,7 @@ export default function CreateTournamentPage() {
             .single());
 
         if (error) {
-            console.error("Error creating tournament:", error);
-            alert(`Failed to create tournament: ${error.message} (${error.code})`);
+            showError(error.message || 'Failed to create tournament');
             setCreating(false);
         } else if (data) {
             // Redirect to the new tournament page

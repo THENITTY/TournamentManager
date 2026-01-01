@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { X, Camera, Eye, EyeOff, Save, Loader2, Upload } from 'lucide-react';
 import type { Database } from '../../types/database.types';
+import { showSuccess, showError } from '../../lib/toastUtils';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 
@@ -105,11 +106,13 @@ export default function ProfileModal({ isOpen, onClose, currentProfile, onUpdate
 
             // Success
             onUpdate(updates);
+            showSuccess('Profile updated successfully!');
             onClose();
 
         } catch (err: any) {
-            console.error(err);
-            setError(err.message || "Failed to update profile");
+            const errorMsg = err.message || "Failed to update profile";
+            setError(errorMsg);
+            showError(errorMsg);
         } finally {
             setLoading(false);
         }
