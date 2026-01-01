@@ -827,7 +827,7 @@ export default function TournamentDashboardPage() {
 
 
                                                 {/* REPORT BUTTON */}
-                                                {!match.is_bye && match.score_p1 === null && canManageTournament && tournament.status !== 'completed' && match.round_number === tournament.current_round && (
+                                                {!match.is_bye && !match.winner_id && canManageTournament && tournament.status !== 'completed' && match.round_number === tournament.current_round && (
                                                     <button
                                                         onClick={() => setReportingMatch(match)}
                                                         className="w-full py-2 bg-white/10 hover:bg-white/20 text-white font-medium rounded-lg text-sm transition-colors mt-2"
@@ -837,7 +837,7 @@ export default function TournamentDashboardPage() {
                                                 )}
 
                                                 {/* COMPLETED STATUS */}
-                                                {!match.is_bye && match.score_p1 !== null && (
+                                                {!match.is_bye && match.winner_id && (
                                                     <div className="flex items-center justify-center gap-2 mt-2 border-t border-white/5 pt-2">
                                                         <span className="text-xs text-green-400 font-bold uppercase tracking-wider">Completed</span>
                                                         {canManageTournament && tournament.status !== 'completed' && (
