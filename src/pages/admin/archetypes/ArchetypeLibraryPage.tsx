@@ -5,6 +5,7 @@ import { ArrowLeft, Search, Plus, Save, Trash2, Library, Edit, Layers, X } from 
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import AdminNavbar from '../../../components/admin/AdminNavbar';
 import DeckImage from '../../../components/decks/DeckImage';
+import { showSuccess, showError } from '../../../lib/toastUtils';
 
 type Archetype = Database['public']['Tables']['archetypes']['Row'] & {
     archetype_compositions?: {
@@ -72,7 +73,7 @@ export default function ArchetypeLibraryPage() {
             return true;
         }
 
-        alert("You do not have permission to manage decks.");
+        showError("You do not have permission to manage decks.");
         navigate(`/admin/leagues/${lid}`);
         return false;
     };
@@ -144,7 +145,7 @@ export default function ArchetypeLibraryPage() {
         if (!customName || !leagueId) return;
         if (!isHybrid && !selectedCard && !editingArchetype) return;
         if (isHybrid && hybridComponents.length < 2) {
-            alert("A Hybrid Deck must have at least 2 components.");
+            showError("A Hybrid Deck must have at least 2 components.");
             return;
         }
 
@@ -180,8 +181,7 @@ export default function ArchetypeLibraryPage() {
                 .eq('id', editingArchetype.id);
 
             if (error) {
-                console.error("Update failed", error);
-                alert(`Update failed: ${error.message}`);
+                showError(error.message || 'Failed to update deck');
                 setLoading(false);
                 return;
             }
@@ -193,8 +193,7 @@ export default function ArchetypeLibraryPage() {
             const newDeck = data as unknown as Archetype;
 
             if (error) {
-                console.error("Create failed", error);
-                alert(`Create failed: ${error.message}`);
+                showError(error.message || 'Failed to create deck');
                 setLoading(false);
                 return;
             }
@@ -220,6 +219,7 @@ export default function ArchetypeLibraryPage() {
         }
 
         fetchArchetypes();
+        showSuccess(editingArchetype ? 'Deck updated successfully!' : 'Deck created successfully!');
         closeModal();
         setLoading(false);
     };

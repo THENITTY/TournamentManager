@@ -5,6 +5,7 @@ import { ArrowLeft, Trophy, Save, Trash2, AlertCircle } from 'lucide-react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import AdminNavbar from '../../../components/admin/AdminNavbar';
 import type { Database } from '../../../types/database.types';
+import { showSuccess, showError } from '../../../lib/toastUtils';
 
 type Tournament = Database['public']['Tables']['tournaments']['Row'];
 
@@ -34,9 +35,8 @@ export default function EditTournamentPage() {
             .single();
 
         if (error) {
-            console.error(error);
-            alert("Tournament not found");
-            navigate('/admin'); // Fallback
+            showError('Tournament not found');
+            navigate('/admin');
         } else if (data) {
             const d = data as any;
             setTournament(d);
@@ -62,13 +62,11 @@ export default function EditTournamentPage() {
             .eq('id', id!));
 
         if (error) {
-            console.error("Error updating tournament:", error);
-            alert(`Failed to update: ${error.message}`);
+            showError(error.message || 'Failed to update tournament');
             setSaving(false);
         } else {
-            // Success
-            // alert("Tournament Updated!");
-            navigate(-1); // Go back
+            showSuccess('Tournament updated successfully!');
+            navigate(-1);
         }
     };
 
@@ -81,10 +79,10 @@ export default function EditTournamentPage() {
             .eq('id', id!);
 
         if (error) {
-            alert(`Failed to delete: ${error.message}`);
+            showError(error.message || 'Failed to delete tournament');
         } else {
-            navigate(-2); // Potentially tricky, better to go to league page if possible, but -1 might be this page itself? Safe bet is explicit route but we don't have leagueId handy without stored context. 
-            // Actually tournament has league_id, we can fetch it.
+            showSuccess('Tournament deleted successfully');
+            navigate(-2);
         }
     };
 
