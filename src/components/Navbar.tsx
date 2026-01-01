@@ -30,22 +30,22 @@ export default function Navbar() {
     };
 
     return (
-        <nav className="bg-surface border-b border-white/5 px-6 py-4 flex justify-between items-center bg-black/50 backdrop-blur-md sticky top-0 z-50">
-            <Link to="/" className="flex items-center gap-2 text-white font-bold text-xl hover:opacity-80 transition-opacity">
-                <Trophy className="text-primary" />
-                <span>DuelManager</span>
+        <nav className="bg-surface border-b border-white/5 px-4 sm:px-6 py-4 flex justify-between items-center bg-black/50 backdrop-blur-md sticky top-0 z-50">
+            <Link to="/" className="flex items-center gap-2 text-white font-bold text-lg sm:text-xl hover:opacity-80 transition-opacity min-w-0">
+                <Trophy className="text-primary shrink-0" size={20} />
+                <span className="truncate">DuelManager</span>
             </Link>
 
-            <div className="flex items-center gap-6">
-                {userName && <span className="text-gray-400 hidden sm:inline">Welcome, {userName}</span>}
+            <div className="flex items-center gap-2 sm:gap-6">
+                {userName && <span className="text-gray-400 hidden md:inline text-sm">Welcome, {userName}</span>}
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 sm:gap-3">
                     {isSuperAdmin && (
                         <Link
                             to="/admin"
-                            className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors text-sm font-medium"
+                            className="flex items-center gap-2 px-2 sm:px-3 py-1.5 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors text-xs sm:text-sm font-medium"
                         >
-                            <Shield size={16} /> <span className="hidden sm:inline">Admin</span>
+                            <Shield size={14} className="sm:w-4 sm:h-4" /> <span>Admin</span>
                         </Link>
                     )}
 
@@ -53,7 +53,7 @@ export default function Navbar() {
 
                     <button
                         onClick={handleLogout}
-                        className="text-gray-400 hover:text-white flex items-center gap-2 transition-colors"
+                        className="text-gray-400 hover:text-white flex items-center gap-2 transition-colors p-1"
                         title="Sign Out"
                     >
                         <LogOut size={18} />

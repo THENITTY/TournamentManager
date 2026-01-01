@@ -39,53 +39,56 @@ export default function AdminNavbar() {
 
     return (
         <>
-            <nav className="bg-surface border-b border-white/5 px-6 py-3 flex justify-between items-center bg-black/50 backdrop-blur-md sticky top-0 z-50">
-                <div className="flex items-center gap-6">
-                    <div className="flex items-center gap-2 text-white font-bold text-lg">
-                        <Shield className="text-primary" />
-                        <span>DuelManager <span className="text-xs font-normal text-gray-400 bg-white/10 px-1.5 py-0.5 rounded ml-1">ADMIN</span></span>
+            <nav className="bg-surface border-b border-white/5 px-4 sm:px-6 py-3 flex justify-between items-center bg-black/50 backdrop-blur-md sticky top-0 z-50">
+                <div className="flex items-center gap-3 sm:gap-6 min-w-0">
+                    <div className="flex items-center gap-2 text-white font-bold text-base sm:text-lg shrink-0">
+                        <Shield className="text-primary" size={18} />
+                        <span className="flex items-center gap-1">
+                            <span className="hidden xs:inline">DuelManager</span>
+                            <span className="text-[10px] font-normal text-gray-400 bg-white/10 px-1 py-0.5 rounded ml-0.5">ADMIN</span>
+                        </span>
                     </div>
 
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
                         {profile?.role === 'super_admin' && (
                             <Link
                                 to="/admin"
-                                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${isActive('/admin') ? 'bg-primary/10 text-primary' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+                                className={`px-2 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors flex items-center gap-2 whitespace-nowrap ${isActive('/admin') ? 'bg-primary/10 text-primary' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
                             >
-                                <LayoutDashboard size={16} /> Dashboard
+                                <LayoutDashboard size={14} className="sm:w-4 sm:h-4" /> <span className="hidden xs:inline">Dashboard</span>
                             </Link>
                         )}
                     </div>
                 </div>
 
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3 sm:gap-4 shrink-0">
                     <Link
                         to="/"
-                        className="text-sm text-gray-400 hover:text-white flex items-center gap-2"
+                        className="text-xs sm:text-sm text-gray-400 hover:text-white flex items-center gap-1.5"
                         title="Go to User View"
                     >
-                        <Home size={16} /> <span className="hidden sm:inline">User View</span>
+                        <Home size={14} className="sm:w-4 sm:h-4" /> <span className="hidden sm:inline">User View</span>
                     </Link>
 
                     <div className="h-4 w-px bg-white/10"></div>
 
                     <button
                         onClick={() => setIsProfileModalOpen(true)}
-                        className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center overflow-hidden border border-white/10 hover:border-primary/50 transition-colors"
+                        className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/10 flex items-center justify-center overflow-hidden border border-white/10 hover:border-primary/50 transition-colors"
                         title="Edit Profile"
                     >
                         {profile?.avatar_url ? (
                             <img src={profile.avatar_url} alt="Profile" className="w-full h-full object-cover" />
                         ) : (
-                            <User className="text-gray-400" size={16} />
+                            <User className="text-gray-400" size={14} />
                         )}
                     </button>
 
                     <button
                         onClick={handleLogout}
-                        className="text-sm text-red-500 hover:text-red-400 flex items-center gap-2 font-medium"
+                        className="text-xs sm:text-sm text-red-500 hover:text-red-400 flex items-center gap-1.5 font-medium"
                     >
-                        <LogOut size={16} /> Logout
+                        <LogOut size={14} className="sm:w-4 sm:h-4" /> <span className="hidden xs:inline">Logout</span>
                     </button>
                 </div>
             </nav>

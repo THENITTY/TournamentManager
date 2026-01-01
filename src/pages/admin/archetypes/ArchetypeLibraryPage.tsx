@@ -317,22 +317,22 @@ export default function ArchetypeLibraryPage() {
     return (
         <div className="min-h-screen bg-background pb-12">
             <AdminNavbar />
-            <div className="max-w-4xl mx-auto p-8">
-                <Link to={`/admin/leagues/${leagueId}`} className="text-gray-400 hover:text-white flex items-center gap-2 mb-6">
-                    <ArrowLeft size={20} /> Back to League
+            <div className="max-w-4xl mx-auto p-4 sm:p-8">
+                <Link to={`/admin/leagues/${leagueId}`} className="text-gray-400 hover:text-white flex items-center gap-2 mb-4 sm:mb-6 text-sm sm:text-base">
+                    <ArrowLeft size={18} /> Back to League
                 </Link>
 
-                <header className="flex justify-between items-center mb-8">
+                <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 sm:mb-8">
                     <div>
-                        <h1 className="text-3xl font-bold text-white flex items-center gap-2">
-                            <Library className="text-primary" /> Deck Library
+                        <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-2">
+                            <Library className="text-primary" size={24} /> Deck Library
                         </h1>
-                        <p className="text-gray-400">Manage registered deck types for this league.</p>
+                        <p className="text-gray-400 text-sm">Manage registered deck types for this league.</p>
                     </div>
                     {!isCreating && (
                         <button
                             onClick={() => setIsCreating(true)}
-                            className="bg-primary text-background px-4 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-primary/90"
+                            className="w-full sm:w-auto bg-primary text-background px-4 py-2 rounded-lg font-bold flex items-center justify-center gap-2 hover:bg-primary/90 text-sm sm:text-base"
                         >
                             <Plus size={20} /> New Deck
                         </button>
@@ -340,12 +340,12 @@ export default function ArchetypeLibraryPage() {
                 </header>
 
                 {isCreating && (
-                    <div className="bg-surface border border-white/5 rounded-xl p-6 mb-8 animate-in fade-in slide-in-from-top-4">
-                        <div className="flex flex-col md:flex-row gap-8">
+                    <div className="bg-surface border border-white/5 rounded-xl p-4 sm:p-6 mb-8 animate-in fade-in slide-in-from-top-4">
+                        <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
                             {/* Input Side */}
-                            <div className="flex-1 space-y-4">
+                            <div className="flex-1 space-y-4 order-2 lg:order-1">
                                 <div className="flex justify-between items-center">
-                                    <h2 className="text-xl font-bold text-white">{editingArchetype ? 'Edit Deck Type' : 'New Deck Type'}</h2>
+                                    <h2 className="text-lg sm:text-xl font-bold text-white">{editingArchetype ? 'Edit Deck Type' : 'New Deck Type'}</h2>
                                     <button
                                         onClick={() => {
                                             if (editingArchetype && !isHybrid) {
@@ -355,35 +355,35 @@ export default function ArchetypeLibraryPage() {
                                             setHybridComponents([]);
                                             setCustomName('');
                                         }}
-                                        className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-2 transition-colors ${isHybrid ? 'bg-indigo-500 border-indigo-500 text-white' : 'bg-transparent border-gray-600 text-gray-400'}`}
+                                        className={`px-2 py-1 rounded-full text-[10px] font-bold border flex items-center gap-1.5 transition-colors ${isHybrid ? 'bg-indigo-500 border-indigo-500 text-white' : 'bg-transparent border-gray-600 text-gray-400'}`}
                                     >
-                                        <Layers size={12} /> Hybrid Deck
+                                        <Layers size={10} /> {isHybrid ? 'Hybrid' : 'Pure'}
                                     </button>
                                 </div>
 
                                 {!isHybrid ? (
                                     <div className="relative">
-                                        <label className="block text-xs text-gray-500 mb-1">Cover Card (Search)</label>
+                                        <label className="block text-[10px] text-gray-500 mb-1 uppercase tracking-wider font-bold">Cover Card (Search)</label>
                                         <div className="relative">
-                                            <Search className="absolute left-3 top-3 text-gray-400" size={18} />
+                                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                                             <input
                                                 type="text"
                                                 placeholder="e.g. Blue-Eyes"
-                                                className="w-full bg-black/40 pl-10 pr-4 py-3 rounded-lg border border-white/10 text-white focus:border-primary outline-none"
+                                                className="w-full bg-black/40 pl-10 pr-4 py-2.5 rounded-lg border border-white/10 text-white focus:border-primary outline-none text-sm"
                                                 value={searchQuery}
                                                 onChange={e => setSearchQuery(e.target.value)}
                                             />
                                         </div>
                                         {searchResults.length > 0 && (
-                                            <div className="absolute top-full left-0 right-0 mt-2 bg-black/90 border border-white/10 rounded-lg shadow-xl z-50 max-h-60 overflow-y-auto">
+                                            <div className="absolute top-full left-0 right-0 mt-2 bg-black/90 border border-white/10 rounded-lg shadow-xl z-50 max-h-48 overflow-y-auto">
                                                 {searchResults.map(card => (
                                                     <div
                                                         key={card.id}
-                                                        className="flex items-center gap-3 p-2 hover:bg-primary/20 cursor-pointer transition-colors"
+                                                        className="flex items-center gap-3 p-2 hover:bg-primary/20 cursor-pointer transition-colors border-b border-white/5 last:border-0"
                                                         onClick={() => handleSelectCard(card)}
                                                     >
-                                                        <img src={card.small_image_url || ''} alt={card.name} className="w-8 h-12 object-cover rounded" />
-                                                        <span className="text-white text-sm">{card.name}</span>
+                                                        <img src={card.small_image_url || ''} alt={card.name} className="w-8 h-12 object-cover rounded shadow-sm" />
+                                                        <span className="text-white text-xs font-medium">{card.name}</span>
                                                     </div>
                                                 ))}
                                             </div>
@@ -391,39 +391,39 @@ export default function ArchetypeLibraryPage() {
                                     </div>
                                 ) : (
                                     <div className="relative">
-                                        <label className="block text-xs text-gray-500 mb-1">Add Components (Search Cards)</label>
+                                        <label className="block text-[10px] text-gray-500 mb-1 uppercase tracking-wider font-bold">Components (Search Cards)</label>
 
                                         {/* Selected Components Tags */}
-                                        <div className="flex flex-wrap gap-2 mb-2">
+                                        <div className="flex flex-wrap gap-1.5 mb-3">
                                             {hybridComponents.map(comp => (
-                                                <div key={comp.id} className="bg-indigo-500/20 border border-indigo-500/50 text-indigo-300 px-2 py-1 rounded flex items-center gap-2 text-sm">
+                                                <div key={comp.id} className="bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 px-2 py-1 rounded-lg flex items-center gap-2 text-[10px] font-bold">
                                                     {comp.name}
-                                                    <button onClick={() => handleRemoveComponent(comp.id)} className="hover:text-white"><X size={14} /></button>
+                                                    <button onClick={() => handleRemoveComponent(comp.id)} className="hover:text-white transition-colors"><X size={12} /></button>
                                                 </div>
                                             ))}
                                         </div>
 
                                         {/* Card Selector for Hybrid */}
                                         <div className="relative">
-                                            <Search className="absolute left-3 top-3 text-gray-400" size={18} />
+                                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                                             <input
                                                 type="text"
                                                 placeholder="Search cards to add..."
-                                                className="w-full bg-black/40 pl-10 pr-4 py-3 rounded-lg border border-white/10 text-white focus:border-primary outline-none"
+                                                className="w-full bg-black/40 pl-10 pr-4 py-2.5 rounded-lg border border-white/10 text-white focus:border-primary outline-none text-sm"
                                                 value={searchQuery}
                                                 onChange={e => setSearchQuery(e.target.value)}
                                             />
                                         </div>
                                         {searchResults.length > 0 && (
-                                            <div className="absolute top-full left-0 right-0 mt-2 bg-black/90 border border-white/10 rounded-lg shadow-xl z-50 max-h-60 overflow-y-auto">
+                                            <div className="absolute top-full left-0 right-0 mt-2 bg-black/90 border border-white/10 rounded-lg shadow-xl z-50 max-h-48 overflow-y-auto">
                                                 {searchResults.map(card => (
                                                     <div
                                                         key={card.id}
-                                                        className="flex items-center gap-3 p-2 hover:bg-primary/20 cursor-pointer transition-colors"
+                                                        className="flex items-center gap-3 p-2 hover:bg-primary/20 cursor-pointer transition-colors border-b border-white/5 last:border-0"
                                                         onClick={() => handleSelectCard(card)}
                                                     >
-                                                        <img src={card.small_image_url || ''} alt={card.name} className="w-8 h-12 object-cover rounded" />
-                                                        <span className="text-white text-sm">{card.name}</span>
+                                                        <img src={card.small_image_url || ''} alt={card.name} className="w-8 h-12 object-cover rounded shadow-sm" />
+                                                        <span className="text-white text-xs font-medium">{card.name}</span>
                                                     </div>
                                                 ))}
                                             </div>
@@ -432,38 +432,38 @@ export default function ArchetypeLibraryPage() {
                                 )}
 
                                 <div>
-                                    <label className="block text-xs text-gray-500 mb-1">Deck Name</label>
+                                    <label className="block text-[10px] text-gray-500 mb-1 uppercase tracking-wider font-bold">Deck Name</label>
                                     <input
                                         type="text"
-                                        className="w-full bg-black/40 px-4 py-3 rounded-lg border border-white/10 text-white focus:border-primary outline-none"
+                                        className="w-full bg-black/40 px-4 py-2.5 rounded-lg border border-white/10 text-white focus:border-primary outline-none text-sm"
                                         placeholder="e.g. Snake-Eye"
                                         value={customName}
                                         onChange={e => setCustomName(e.target.value)}
                                     />
                                 </div>
 
-                                <div className="flex gap-4 pt-4">
-                                    <button
-                                        onClick={closeModal}
-                                        className="px-6 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-gray-400"
-                                    >
-                                        Cancel
-                                    </button>
+                                <div className="flex flex-col sm:flex-row gap-2 pt-2">
                                     <button
                                         onClick={handleSave}
                                         disabled={(!selectedCard && !editingArchetype && !isHybrid) || !customName || loading}
-                                        className="px-6 py-2 bg-primary text-background font-bold rounded-lg hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2"
+                                        className="order-1 sm:order-2 flex-1 px-6 py-2.5 bg-primary text-background font-bold rounded-lg hover:bg-primary/90 disabled:opacity-50 flex items-center justify-center gap-2 text-sm transition-all shadow-lg active:scale-95"
                                     >
-                                        <Save size={18} /> {editingArchetype ? 'Update Deck' : 'Save Deck'}
+                                        <Save size={18} /> {editingArchetype ? 'Update' : 'Save Deck'}
+                                    </button>
+                                    <button
+                                        onClick={closeModal}
+                                        className="order-2 sm:order-1 px-6 py-2.5 bg-white/5 hover:bg-white/10 rounded-lg text-gray-400 text-sm transition-colors"
+                                    >
+                                        Cancel
                                     </button>
                                 </div>
                             </div>
 
                             {/* Preview Side */}
-                            <div className="w-full md:w-1/3 flex flex-col items-center justify-center bg-black/20 rounded-lg border border-white/5 p-4">
+                            <div className="w-full lg:w-1/3 flex flex-col items-center justify-center bg-black/20 rounded-xl border border-white/5 p-4 order-1 lg:order-2 mb-4 lg:mb-0">
                                 {((isHybrid && hybridComponents.length > 0) || (!isHybrid && (selectedCard || editingArchetype?.cover_image_url))) ? (
                                     <>
-                                        <div className="w-24 h-24 rounded-full border-2 border-primary overflow-hidden mb-4 relative shadow-[0_0_15px_rgba(234,179,8,0.3)]">
+                                        <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-2 border-primary overflow-hidden mb-3 relative shadow-[0_0_20px_rgba(234,179,8,0.2)]">
                                             {isHybrid ? (
                                                 <div className="w-full h-full relative">
                                                     {hybridComponents.length > 0 ? (
@@ -476,17 +476,20 @@ export default function ArchetypeLibraryPage() {
                                                 <img
                                                     src={selectedCard?.image_url || editingArchetype?.cover_image_url || ''}
                                                     alt="Art"
-                                                    className="w-full h-full object-cover object-[center_20%]"
+                                                    className="w-full h-full object-cover object-[center_20%] scale-150"
                                                 />
                                             )}
                                         </div>
                                         <div className="text-center">
-                                            <p className="text-white font-bold text-lg">{customName}</p>
-                                            <p className="text-xs text-gray-500">Preview</p>
+                                            <p className="text-white font-bold text-base line-clamp-1">{customName || 'Deck Name'}</p>
+                                            <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Preview</p>
                                         </div>
                                     </>
                                 ) : (
-                                    <p className="text-gray-500 italic text-sm">Select content to preview</p>
+                                    <div className="text-center py-4">
+                                        <Library className="mx-auto text-gray-600 mb-2" size={32} />
+                                        <p className="text-gray-500 italic text-xs">Search content to preview</p>
+                                    </div>
                                 )}
                             </div>
                         </div>
@@ -502,10 +505,14 @@ export default function ArchetypeLibraryPage() {
                             </div>
 
                             <div className="flex-1 min-w-0">
-                                <h3 className="text-white font-bold text-lg flex items-center gap-2">
+                                <h3 className="text-white font-bold text-base sm:text-lg flex items-center gap-2 truncate">
                                     {arch.name}
                                 </h3>
-                                <p className="text-xs text-gray-500">{arch.is_hybrid ? 'Hybrid' : 'Pure'}</p>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase ${arch.is_hybrid ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' : 'bg-green-500/10 text-green-400 border border-green-500/20'}`}>
+                                        {arch.is_hybrid ? 'Hybrid' : 'Pure'}
+                                    </span>
+                                </div>
                             </div>
 
                             <div className="flex gap-2">

@@ -578,23 +578,23 @@ export default function TournamentDashboardPage() {
     return (
         <div className="min-h-screen bg-background pb-12 relative">
             <AdminNavbar />
-            <div className="max-w-6xl mx-auto p-8">
-                <Link to={`/admin/leagues/${tournament.league_id}`} className="text-gray-400 hover:text-white flex items-center gap-2 mb-6">
-                    <ArrowLeft size={20} /> Back to League
+            <div className="max-w-6xl mx-auto p-4 sm:p-8">
+                <Link to={`/admin/leagues/${tournament.league_id}`} className="text-gray-400 hover:text-white flex items-center gap-2 mb-4 sm:mb-6 text-sm sm:text-base">
+                    <ArrowLeft size={18} /> Back to League
                 </Link>
 
                 {/* HEADER */}
-                <header className="bg-surface border border-white/5 rounded-xl p-8 mb-8 relative overflow-hidden">
+                <header className="bg-surface border border-white/5 rounded-xl p-4 sm:p-8 mb-6 sm:mb-8 relative overflow-hidden">
                     <div className="relative z-10">
-                        <div className="flex justify-between items-start mb-4">
-                            <div>
-                                <h1 className="text-4xl font-bold text-white mb-2">{tournament.name}</h1>
-                                <div className="flex items-center gap-6 text-gray-400">
-                                    <span className="flex items-center gap-2"><Calendar size={18} /> {new Date(tournament.date).toLocaleDateString()}</span>
-                                    <span className="flex items-center gap-2"><Swords size={18} /> {tournament.format} System</span>
+                        <div className="flex flex-col sm:flex-row justify-between items-start gap-4 sm:gap-2 mb-4">
+                            <div className="min-w-0 flex-1">
+                                <h1 className="text-2xl sm:text-4xl font-bold text-white mb-2 truncate">{tournament.name}</h1>
+                                <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-xs sm:text-sm text-gray-400">
+                                    <span className="flex items-center gap-2"><Calendar size={14} className="sm:w-4 sm:h-4" /> {new Date(tournament.date).toLocaleDateString()}</span>
+                                    <span className="flex items-center gap-2"><Swords size={14} className="sm:w-4 sm:h-4" /> {tournament.format} System</span>
                                 </div>
                             </div>
-                            <div className={`px-4 py-2 rounded-lg font-bold uppercase tracking-wider text-sm
+                            <div className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg font-bold uppercase tracking-wider text-[10px] sm:text-sm shrink-0
                                 ${tournament.status === 'setup' ? 'bg-yellow-500/20 text-yellow-500' :
                                     tournament.status === 'active' ? 'bg-blue-500/20 text-blue-500' : 'bg-green-500/20 text-green-500'}
                             `}>
@@ -604,25 +604,24 @@ export default function TournamentDashboardPage() {
                     </div>
                 </header>
 
-                {/* TABS */}
-                <div className="flex border-b border-white/10 mb-8 overflow-x-auto">
+                <div className="flex border-b border-white/10 mb-6 sm:mb-8 overflow-x-auto no-scrollbar scroll-smooth">
                     <button
                         onClick={() => setActiveTab('overview')}
-                        className={`px-6 py-4 font-medium text-sm transition-colors border-b-2 whitespace-nowrap ${activeTab === 'overview' ? 'border-primary text-primary' : 'border-transparent text-gray-400 hover:text-white'
+                        className={`px-4 sm:px-6 py-3 sm:py-4 font-medium text-xs sm:text-sm transition-colors border-b-2 whitespace-nowrap ${activeTab === 'overview' ? 'border-primary text-primary' : 'border-transparent text-gray-400 hover:text-white'
                             }`}
                     >
-                        Overview & Participants
+                        Overview
                     </button>
                     <button
                         onClick={() => setActiveTab('pairings')}
-                        className={`px-6 py-4 font-medium text-sm transition-colors border-b-2 whitespace-nowrap ${activeTab === 'pairings' ? 'border-primary text-primary' : 'border-transparent text-gray-400 hover:text-white'
+                        className={`px-4 sm:px-6 py-3 sm:py-4 font-medium text-xs sm:text-sm transition-colors border-b-2 whitespace-nowrap ${activeTab === 'pairings' ? 'border-primary text-primary' : 'border-transparent text-gray-400 hover:text-white'
                             }`}
                     >
-                        Pairings & Matches
+                        Pairings
                     </button>
                     <button
                         onClick={() => setActiveTab('standings')}
-                        className={`px-6 py-4 font-medium text-sm transition-colors border-b-2 whitespace-nowrap ${activeTab === 'standings' ? 'border-primary text-primary' : 'border-transparent text-gray-400 hover:text-white'
+                        className={`px-4 sm:px-6 py-3 sm:py-4 font-medium text-xs sm:text-sm transition-colors border-b-2 whitespace-nowrap ${activeTab === 'standings' ? 'border-primary text-primary' : 'border-transparent text-gray-400 hover:text-white'
                             }`}
                     >
                         Standings

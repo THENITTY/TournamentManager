@@ -269,98 +269,100 @@ export default function LeagueDetailPage() {
     return (
         <div className="min-h-screen bg-background pb-12">
             <AdminNavbar />
-            <div className="max-w-6xl mx-auto p-8 relative">
-                <Link to="/" className="text-gray-400 hover:text-white flex items-center gap-2 mb-6">
-                    <ArrowLeft size={20} /> Back to Dashboard
+            <div className="max-w-6xl mx-auto p-4 sm:p-8 relative">
+                <Link to="/" className="text-gray-400 hover:text-white flex items-center gap-2 mb-4 sm:mb-6 text-sm sm:text-base">
+                    <ArrowLeft size={18} /> Back to Dashboard
                 </Link>
 
-                <header className="mb-8 p-6 bg-surface border border-white/5 rounded-xl">
-                    <div className="flex justify-between items-start">
-                        <div>
+                <header className="mb-6 sm:mb-8 p-4 sm:p-6 bg-surface border border-white/5 rounded-xl">
+                    <div className="flex flex-col sm:flex-row justify-between items-start gap-6 sm:gap-4 font-sans">
+                        <div className="flex-1 w-full min-w-0">
                             {(isGlobalSuperAdmin || currentLeagueRole === 'admin') && (
                                 <>
                                     {isEditingName ? (
-                                        <div className="flex items-center gap-2 mb-2">
+                                        <div className="flex items-center gap-2 mb-4">
                                             <input
                                                 type="text"
                                                 value={editedName}
                                                 onChange={(e) => setEditedName(e.target.value)}
-                                                className="text-4xl font-bold text-white bg-black/40 border border-white/10 rounded px-2 py-1 outline-none focus:border-primary w-full max-w-md"
+                                                className="text-2xl sm:text-4xl font-bold text-white bg-black/40 border border-white/10 rounded px-2 py-1 outline-none focus:border-primary w-full max-w-md"
                                                 autoFocus
                                             />
-                                            <button
-                                                onClick={handleUpdateName}
-                                                className="p-2 bg-primary text-background rounded-lg hover:bg-primary/90 transition-colors"
-                                                title="Save Name"
-                                            >
-                                                <Check size={24} />
-                                            </button>
-                                            <button
-                                                onClick={() => {
-                                                    setIsEditingName(false);
-                                                    setEditedName(league.name);
-                                                }}
-                                                className="p-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors"
-                                                title="Cancel"
-                                            >
-                                                <X size={24} />
-                                            </button>
+                                            <div className="flex gap-1 shrink-0">
+                                                <button
+                                                    onClick={handleUpdateName}
+                                                    className="p-2 bg-primary text-background rounded-lg hover:bg-primary/90 transition-colors"
+                                                    title="Save Name"
+                                                >
+                                                    <Check size={20} />
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        setIsEditingName(false);
+                                                        setEditedName(league.name);
+                                                    }}
+                                                    className="p-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors"
+                                                    title="Cancel"
+                                                >
+                                                    <X size={20} />
+                                                </button>
+                                            </div>
                                         </div>
                                     ) : (
-                                        <h1 className="text-4xl font-bold text-white mb-2 flex items-center gap-3 group">
-                                            {league.name}
+                                        <h1 className="text-2xl sm:text-4xl font-bold text-white mb-2 flex items-center flex-wrap gap-2 group min-w-0">
+                                            <span className="truncate">{league.name}</span>
                                             <button
                                                 onClick={() => setIsEditingName(true)}
                                                 className="text-gray-500 hover:text-white transition-colors p-1"
                                                 title="Edit Name"
                                             >
-                                                <Edit size={24} />
+                                                <Edit size={20} className="sm:w-6 sm:h-6" />
                                             </button>
                                         </h1>
                                     )}
                                 </>
                             )}
                             {!(isGlobalSuperAdmin || currentLeagueRole === 'admin') && (
-                                <h1 className="text-4xl font-bold text-white mb-2">{league.name}</h1>
+                                <h1 className="text-2xl sm:text-4xl font-bold text-white mb-2 truncate">{league.name}</h1>
                             )}
 
-                            <div className="flex items-center gap-4 text-gray-400">
-                                <span className="flex items-center gap-1"><Calendar size={16} /> {new Date(league.created_at).toLocaleDateString()}</span>
-                                <span className={`px-2 py-0.5 rounded text-sm capitalize ${league.status === 'ongoing' ? 'bg-green-500/20 text-green-500' : 'bg-gray-500/20'}`}>
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-gray-400 text-sm">
+                                <span className="flex items-center gap-1 whitespace-nowrap"><Calendar size={14} /> {new Date(league.created_at).toLocaleDateString()}</span>
+                                <span className={`px-2 py-0.5 rounded text-xs capitalize ${league.status === 'ongoing' ? 'bg-green-500/20 text-green-500' : 'bg-gray-500/20'}`}>
                                     {league.status}
                                 </span>
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                             {canManageRequests && (
                                 <Link
                                     to={`/admin/leagues/${league.id}/library`}
-                                    className="flex items-center gap-2 px-4 py-2 bg-white/5 text-gray-300 rounded-lg font-medium hover:bg-white/10 hover:text-white transition-colors border border-white/5"
+                                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 bg-white/5 text-gray-300 rounded-lg text-sm font-medium hover:bg-white/10 hover:text-white transition-colors border border-white/5"
                                 >
-                                    <Library size={18} /> Deck Library
+                                    <Library size={16} /> Deck Library
                                 </Link>
                             )}
 
                             {(isGlobalSuperAdmin || currentLeagueRole === 'admin') && (
                                 <button
                                     onClick={toggleVisibility}
-                                    className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${league.is_public
+                                    className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${league.is_public
                                         ? 'bg-blue-500/10 text-blue-500 border border-blue-500/50 hover:bg-blue-500/20'
                                         : 'bg-orange-500/10 text-orange-500 border border-orange-500/50 hover:bg-orange-500/20'}`}
                                 >
-                                    {league.is_public ? <Globe size={18} /> : <Lock size={18} />}
-                                    {league.is_public ? 'Public' : 'Private'}
+                                    {league.is_public ? <Globe size={16} /> : <Lock size={16} />}
+                                    <span className="whitespace-nowrap">{league.is_public ? 'Public' : 'Private'}</span>
                                 </button>
                             )}
 
                             {canDeleteLeague && (
                                 <button
                                     onClick={handleDeleteLeague}
-                                    className="px-3 py-2 bg-red-500/10 text-red-500 border border-red-500/50 hover:bg-red-500/20 rounded-lg transition-colors"
+                                    className="px-3 py-2 bg-red-500/10 text-red-500 border border-red-500/50 hover:bg-red-500/20 rounded-lg transition-colors shrink-0"
                                     title="Delete League"
                                 >
-                                    <Trash2 size={18} />
+                                    <Trash2 size={16} />
                                 </button>
                             )}
                         </div>

@@ -3,8 +3,9 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import type { Database } from '../../types/database.types';
 import { Link, useNavigate } from 'react-router-dom';
-import { Trophy, LogOut, Search, Users, Shield, Plus, Check, X, User } from 'lucide-react';
+import { Trophy, Search, Users, Plus, Check, X } from 'lucide-react';
 import ProfileModal from '../../components/dashboard/ProfileModal';
+import Navbar from '../../components/Navbar';
 
 type BaseLeague = Database['public']['Tables']['leagues']['Row'];
 
@@ -162,180 +163,164 @@ export default function DashboardPage() {
     if (loading) return <div className="p-8 text-white min-h-screen bg-background flex items-center justify-center">Loading...</div>;
 
     return (
-        <div className="min-h-screen bg-background p-4 md:p-8">
-            <header className="flex justify-between items-center mb-12 max-w-6xl mx-auto">
-                <div>
-                    <h1 className="text-3xl font-bold text-primary">DuelManager</h1>
-                    <p className="text-gray-400">Welcome back, {profile?.first_name || 'Duelist'}</p>
-                </div>
+        <div className="min-h-screen bg-background">
+            <Navbar />
+            <div className="max-w-6xl mx-auto p-4 sm:p-8 space-y-6 sm:space-y-8 relative">
+                <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-2">
+                    <div>
+                        <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-2">
+                            <Trophy className="text-primary" size={24} /> My Duels
+                        </h1>
+                        <p className="text-gray-400 text-sm">Welcome back, {profile?.first_name || 'Duelist'}</p>
+                    </div>
+                </header>
 
-                <div className="flex items-center gap-4">
-                    {profile?.role === 'super_admin' && (
-                        <Link to="/admin" className="px-4 py-2 border border-primary/50 text-primary rounded-lg hover:bg-primary/10 transition-colors flex items-center gap-2 hidden md:flex">
-                            <Shield size={16} /> Admin Panel
-                        </Link>
-                    )}
-
-                    <button
-                        onClick={() => setIsProfileModalOpen(true)}
-                        className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center overflow-hidden border border-white/10 hover:border-primary/50 transition-colors"
-                        title="Edit Profile"
-                    >
-                        {profile?.avatar_url ? (
-                            <img src={profile.avatar_url} alt="Profile" className="w-full h-full object-cover" />
-                        ) : (
-                            <User className="text-gray-400" size={20} />
-                        )}
-                    </button>
-
-                    <button onClick={() => supabase.auth.signOut()} className="p-2 text-gray-500 hover:text-white" title="Sign Out">
-                        <LogOut />
-                    </button>
-                </div>
-            </header>
-
-            <main className="max-w-6xl mx-auto grid md:grid-cols-2 gap-8">
-
-                {/* LEFT COLUMN: LEAGUES */}
-                <div className="space-y-8">
-                    {/* MY LEAGUES */}
-                    <section>
-                        <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                                <Trophy className="text-yellow-500" /> My Leagues
-                            </h2>
-                            {!isCreating && canCreateLeague && (
-                                <button
-                                    onClick={() => setIsCreating(true)}
-                                    className="px-3 py-1.5 bg-white/10 text-white rounded-lg text-sm hover:bg-white/20 transition-colors flex items-center gap-1"
-                                >
-                                    <Plus size={16} /> Create League
-                                </button>
-                            )}
-                        </div>
-
-                        {isCreating && (
-                            <div className="mb-6 bg-surface border border-white/10 rounded-xl p-4 animate-in fade-in slide-in-from-top-2">
-                                <label className="block text-xs text-gray-500 mb-1">League Name</label>
-                                <div className="flex gap-2">
-                                    <input
-                                        type="text"
-                                        value={newLeagueName}
-                                        onChange={e => setNewLeagueName(e.target.value)}
-                                        placeholder="e.g. Winter Cup 2024"
-                                        className="flex-1 bg-black/20 border border-white/10 rounded px-3 py-2 text-white focus:border-primary outline-none"
-                                        autoFocus
-                                    />
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
+                    {/* LEFT COLUMN: LEAGUES */}
+                    <div className="space-y-6 sm:space-y-8">
+                        {/* MY LEAGUES */}
+                        <section>
+                            <div className="flex justify-between items-center mb-4">
+                                <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
+                                    <Trophy className="text-yellow-500" size={20} /> My Leagues
+                                </h2>
+                                {!isCreating && canCreateLeague && (
                                     <button
-                                        type="button"
-                                        onClick={() => setIsPublic(!isPublic)}
-                                        className={`px-3 py-2 rounded font-bold text-sm border transition-colors ${isPublic ? 'bg-primary/20 border-primary text-primary' : 'bg-black/20 border-white/10 text-gray-500'}`}
+                                        onClick={() => setIsCreating(true)}
+                                        className="px-3 py-1.5 bg-white/10 text-white rounded-lg text-sm hover:bg-white/20 transition-colors flex items-center gap-1"
                                     >
-                                        {isPublic ? 'Public' : 'Private'}
+                                        <Plus size={16} /> Create League
                                     </button>
-                                    <button
-                                        onClick={handleCreateLeague}
-                                        disabled={!newLeagueName.trim()}
-                                        className="bg-primary text-background px-3 rounded font-bold hover:bg-primary/90 disabled:opacity-50"
-                                    >
-                                        <Check size={18} />
-                                    </button>
-                                    <button
-                                        onClick={() => setIsCreating(false)}
-                                        className="bg-white/10 text-white px-3 rounded hover:bg-white/20"
-                                    >
-                                        <X size={18} />
-                                    </button>
-                                </div>
+                                )}
                             </div>
-                        )}
 
-                        {myLeagues.length === 0 ? (
-                            <div className="text-gray-500 italic p-6 bg-surface border border-white/5 rounded-xl text-center">
-                                You haven't joined any leagues yet.
-                            </div>
-                        ) : (
-                            <div className="grid gap-3">
-                                {myLeagues.map(league => (
-                                    <Link to={`/admin/leagues/${league.id}`} key={league.id} className="block bg-surface p-4 rounded-xl border border-white/5 hover:border-primary/50 transition-colors group">
-                                        <div className="flex justify-between items-center">
-                                            <div>
-                                                <h3 className="text-lg font-bold text-white group-hover:text-primary transition-colors">{league.name}</h3>
-                                                <div className="flex gap-2 mt-1">
-                                                    <span className={`text-xs px-2 py-0.5 rounded capitalize ${league.role === 'admin' ? 'bg-yellow-500/10 text-yellow-500' : 'bg-blue-500/10 text-blue-500'}`}>
-                                                        {league.role}
-                                                    </span>
-                                                    <span className={`text-xs px-2 py-0.5 rounded capitalize ${league.status === 'pending' ? 'bg-orange-500/10 text-orange-500' : 'bg-green-500/10 text-green-500'}`}>
-                                                        {league.status}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            <div className="text-gray-500 group-hover:translate-x-1 transition-transform">
-                                                →
-                                            </div>
-                                        </div>
-                                    </Link>
-                                ))}
-                            </div>
-                        )}
-                    </section>
-                </div>
-
-                {/* RIGHT COLUMN: PROFILE & AVAILABLE LEAGUES */}
-                <div className="space-y-8">
-
-
-                    {/* AVAILABLE LEAGUES */}
-                    <section>
-                        <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                            <Search className="text-blue-500" /> Open Leagues
-                        </h2>
-                        {availableLeagues.length === 0 ? (
-                            <div className="bg-surface border border-white/5 rounded-xl p-8 text-center">
-                                <p className="text-gray-500">No public leagues available to join.</p>
-                            </div>
-                        ) : (
-                            <div className="space-y-4">
-                                {availableLeagues.map(l => (
-                                    <div key={l.id} className="bg-black/40 border border-white/5 rounded-xl p-6 flex justify-between items-center">
-                                        <div>
-                                            <h3 className="text-gray-200 font-bold">{l.name}</h3>
-                                            <p className="text-xs text-blue-400 border border-blue-500/20 bg-blue-500/10 px-2 py-0.5 rounded inline-block mt-1">Public</p>
-                                        </div>
+                            {isCreating && (
+                                <div className="mb-6 bg-surface border border-white/10 rounded-xl p-4 animate-in fade-in slide-in-from-top-2">
+                                    <label className="block text-xs text-gray-500 mb-1">League Name</label>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            value={newLeagueName}
+                                            onChange={e => setNewLeagueName(e.target.value)}
+                                            placeholder="e.g. Winter Cup 2024"
+                                            className="flex-1 bg-black/20 border border-white/10 rounded px-3 py-2 text-white focus:border-primary outline-none"
+                                            autoFocus
+                                        />
                                         <button
                                             type="button"
-                                            onClick={(e) => handleJoin(e, l.id)}
-                                            className="px-4 py-2 bg-primary text-background font-bold rounded-lg hover:bg-primary/90 transition-all flex items-center gap-2"
+                                            onClick={() => setIsPublic(!isPublic)}
+                                            className={`px-3 py-2 rounded font-bold text-sm border transition-colors ${isPublic ? 'bg-primary/20 border-primary text-primary' : 'bg-black/20 border-white/10 text-gray-500'}`}
                                         >
-                                            <Users size={16} /> Join
+                                            {isPublic ? 'Public' : 'Private'}
+                                        </button>
+                                        <button
+                                            onClick={handleCreateLeague}
+                                            disabled={!newLeagueName.trim()}
+                                            className="bg-primary text-background px-3 rounded font-bold hover:bg-primary/90 disabled:opacity-50"
+                                        >
+                                            <Check size={18} />
+                                        </button>
+                                        <button
+                                            onClick={() => setIsCreating(false)}
+                                            className="bg-white/10 text-white px-3 rounded hover:bg-white/20"
+                                        >
+                                            <X size={18} />
                                         </button>
                                     </div>
-                                ))}
-                            </div>
-                        )}
-                    </section>
+                                </div>
+                            )}
 
-                    {canCreateLeague && (
-                        <section className="bg-gradient-to-r from-purple-900/20 to-blue-900/20 p-6 rounded-xl border border-white/10 text-center">
-                            <h3 className="text-white font-bold mb-2">Want to start your own?</h3>
-                            <p className="text-sm text-gray-400 mb-4">Create a league and invite your friends to duel!</p>
-                            <button
-                                onClick={() => setIsCreating(true)}
-                                className="px-6 py-2 bg-primary text-background font-bold rounded-full hover:bg-primary/90 transition-transform hover:scale-105"
-                            >
-                                Create League
-                            </button>
+                            {myLeagues.length === 0 ? (
+                                <div className="text-gray-500 italic p-6 bg-surface border border-white/5 rounded-xl text-center">
+                                    You haven't joined any leagues yet.
+                                </div>
+                            ) : (
+                                <div className="grid gap-3">
+                                    {myLeagues.map(league => (
+                                        <Link to={`/admin/leagues/${league.id}`} key={league.id} className="block bg-surface p-4 rounded-xl border border-white/5 hover:border-primary/50 transition-colors group">
+                                            <div className="flex justify-between items-center">
+                                                <div className="min-w-0 pr-4">
+                                                    <h3 className="text-base sm:text-lg font-bold text-white group-hover:text-primary transition-colors truncate">{league.name}</h3>
+                                                    <div className="flex flex-wrap items-center gap-2 mt-1">
+                                                        <span className={`text-[10px] px-1.5 py-0.5 rounded capitalize font-bold ${league.role === 'admin' ? 'bg-yellow-500/10 text-yellow-500' : 'bg-blue-500/10 text-blue-500'}`}>
+                                                            {league.role}
+                                                        </span>
+                                                        <span className={`text-[10px] px-1.5 py-0.5 rounded capitalize font-bold ${league.status === 'pending' ? 'bg-orange-500/10 text-orange-500' : 'bg-green-500/10 text-green-500'}`}>
+                                                            {league.status}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div className="text-gray-500 group-hover:translate-x-1 transition-transform shrink-0">
+                                                    <Search size={16} />
+                                                </div>
+                                            </div>
+                                        </Link>
+                                    ))}
+                                </div>
+                            )}
                         </section>
-                    )}
-                </div>
-            </main>
+                    </div>
 
-            <ProfileModal
-                isOpen={isProfileModalOpen}
-                onClose={() => setIsProfileModalOpen(false)}
-                currentProfile={profile}
-                onUpdate={handleProfileUpdate}
-            />
+                    {/* RIGHT COLUMN: PROFILE & AVAILABLE LEAGUES */}
+                    <div className="space-y-8">
+
+
+                        {/* AVAILABLE LEAGUES */}
+                        <section>
+                            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                                <Search className="text-blue-500" /> Open Leagues
+                            </h2>
+                            {availableLeagues.length === 0 ? (
+                                <div className="bg-surface border border-white/5 rounded-xl p-8 text-center">
+                                    <p className="text-gray-500">No public leagues available to join.</p>
+                                </div>
+                            ) : (
+                                <div className="grid gap-3">
+                                    {availableLeagues.map(l => (
+                                        <div key={l.id} className="bg-surface/50 border border-white/5 rounded-xl p-4 flex justify-between items-center gap-4 hover:border-blue-500/30 transition-colors group">
+                                            <div className="min-w-0 pr-2">
+                                                <h3 className="text-white font-bold truncate group-hover:text-blue-400 transition-colors">{l.name}</h3>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    <span className="text-[10px] text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Public</span>
+                                                </div>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={(e) => handleJoin(e, l.id)}
+                                                className="shrink-0 h-10 w-10 sm:w-auto sm:px-4 bg-primary text-background font-bold rounded-lg hover:bg-primary/90 transition-all flex items-center justify-center gap-2"
+                                                title="Join League"
+                                            >
+                                                <Users size={18} />
+                                                <span className="hidden sm:inline text-sm">Join</span>
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </section>
+
+                        {canCreateLeague && (
+                            <section className="bg-gradient-to-r from-purple-900/20 to-blue-900/20 p-6 rounded-xl border border-white/10 text-center">
+                                <h3 className="text-white font-bold mb-2">Want to start your own?</h3>
+                                <p className="text-sm text-gray-400 mb-4">Create a league and invite your friends to duel!</p>
+                                <button
+                                    onClick={() => setIsCreating(true)}
+                                    className="px-6 py-2 bg-primary text-background font-bold rounded-full hover:bg-primary/90 transition-transform hover:scale-105"
+                                >
+                                    Create League
+                                </button>
+                            </section>
+                        )}
+                    </div>
+                </div>
+
+                <ProfileModal
+                    isOpen={isProfileModalOpen}
+                    onClose={() => setIsProfileModalOpen(false)}
+                    currentProfile={profile}
+                    onUpdate={handleProfileUpdate}
+                />
+            </div>
         </div>
     );
 }
