@@ -145,6 +145,7 @@ export interface Database {
                     cover_card_id: string | null
                     cover_image_url: string
                     created_at: string
+                    is_hybrid: boolean
                 }
                 Insert: {
                     id?: string
@@ -153,6 +154,7 @@ export interface Database {
                     cover_card_id?: string | null
                     cover_image_url: string
                     created_at?: string
+                    is_hybrid?: boolean
                 }
                 Update: {
                     id?: string
@@ -160,6 +162,27 @@ export interface Database {
                     name?: string
                     cover_card_id?: string | null
                     cover_image_url?: string
+                    created_at?: string
+                    is_hybrid?: boolean
+                }
+            }
+            archetype_compositions: {
+                Row: {
+                    id: string
+                    hybrid_archetype_id: string
+                    card_id: string
+                    created_at: string
+                }
+                Insert: {
+                    id?: string
+                    hybrid_archetype_id: string
+                    card_id: string
+                    created_at?: string
+                }
+                Update: {
+                    id?: string
+                    hybrid_archetype_id?: string
+                    card_id?: string
                     created_at?: string
                 }
             }
