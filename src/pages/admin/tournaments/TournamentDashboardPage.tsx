@@ -4,6 +4,7 @@ import { supabase } from '../../../lib/supabase';
 import { ArrowLeft, Calendar, Users, Trophy, Swords, Trash2, Pencil } from 'lucide-react';
 import AdminNavbar from '../../../components/admin/AdminNavbar';
 import type { Database } from '../../../types/database.types';
+import { showSuccess, showError } from '../../../lib/toastUtils';
 import DeckImage from '../../../components/decks/DeckImage';
 
 import { generateRound1Pairings, calculateStandings, generateNextRoundPairings, type ParticipantStats } from '../../../lib/tournament/pairingUtils';
@@ -160,7 +161,7 @@ export default function TournamentDashboardPage() {
             }));
 
         if (error) {
-            alert("Failed to add player: " + error.message);
+            showError(error.message || "Failed to add player");
         } else {
             fetchParticipants();
             setIsAddModalOpen(false);
@@ -211,7 +212,7 @@ export default function TournamentDashboardPage() {
                 .single() as any);
 
             if (createError || !newDeck) {
-                alert("Failed to create deck: " + (createError?.message || "Unknown error"));
+                showError(createError?.message || "Failed to create deck");
                 return;
             }
             deckId = newDeck.id;
@@ -245,7 +246,7 @@ export default function TournamentDashboardPage() {
             .eq('id', selectedParticipantIdForDeck));
 
         if (error) {
-            alert("Failed to assign deck: " + error.message);
+            showError(error.message || "Failed to assign deck");
             fetchParticipants(); // Revert
         }
     };
@@ -327,7 +328,7 @@ export default function TournamentDashboardPage() {
 
         const { error: pairError } = await ((supabase.from('matches') as any).insert(newPairings as any));
         if (pairError) {
-            alert("Failed to generate pairings: " + pairError.message);
+            showError(pairError.message || "Failed to generate pairings");
             return;
         }
 
@@ -337,9 +338,10 @@ export default function TournamentDashboardPage() {
             .eq('id', (tournament as any).id));
 
         if (roundError) {
-            alert("Failed to update round: " + roundError.message);
+            showError(roundError.message || "Failed to update round");
         } else {
             fetchTournament();
+            showSuccess('Match result saved successfully');
             fetchMatches();
             setActiveTab('pairings');
         }
@@ -399,7 +401,7 @@ export default function TournamentDashboardPage() {
             // We can show a success toast here if we had one, or just let the UI reflect 'Completed'
         } catch (error) {
             const message = error instanceof Error ? error.message : "Unknown error";
-            alert("Error finishing tournament: " + message);
+            showError(message || "Error finishing tournament");
         } finally {
             setFinishing(false);
         }
@@ -443,7 +445,7 @@ export default function TournamentDashboardPage() {
             .insert(pairings as any));
 
         if (matchError) {
-            alert("Failed to create pairings: " + matchError.message);
+            showError(matchError.message || "Failed to create pairings");
             return;
         }
 
@@ -457,7 +459,7 @@ export default function TournamentDashboardPage() {
             .eq('id', (tournament as any).id));
 
         if (error) {
-            alert("Failed to start: " + error.message);
+            showError(error.message || "Failed to start tournament");
         } else {
             // Update local state
             setTournament({
@@ -488,7 +490,7 @@ export default function TournamentDashboardPage() {
             .eq('id', playerToDelete);
 
         if (error) {
-            alert("Failed to remove: " + error.message);
+            showError(error.message || "Failed to remove player");
         } else {
             fetchParticipants();
         }
@@ -534,7 +536,7 @@ export default function TournamentDashboardPage() {
             .eq('id', (reportingMatch as any).id));
 
         if (error) {
-            alert("Error reporting result: " + error.message);
+            showError(error.message || "Error reporting result");
         } else {
             fetchMatches();
             setReportingMatch(null);

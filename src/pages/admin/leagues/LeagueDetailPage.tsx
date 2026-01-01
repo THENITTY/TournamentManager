@@ -5,6 +5,7 @@ import { supabase } from '../../../lib/supabase';
 import type { Database } from '../../../types/database.types';
 import { ArrowLeft, Users, Calendar, Library, Globe, Lock, MoreHorizontal, Trophy, Shield, User, Trash2, Edit, Check, X } from 'lucide-react';
 import AdminNavbar from '../../../components/admin/AdminNavbar';
+import { showSuccess, showError } from '../../../lib/toastUtils';
 
 type League = Database['public']['Tables']['leagues']['Row'];
 type LeagueRole = 'admin' | 'co_admin' | 'user';
@@ -124,7 +125,7 @@ export default function LeagueDetailPage() {
 
         if (error) {
             console.error(error);
-            alert("Failed to update visibility");
+            showError("Failed to update visibility");
             setLeague(prev => prev ? { ...prev, is_public: !newStatus } : null);
         }
     };
@@ -139,9 +140,10 @@ export default function LeagueDetailPage() {
             .eq('id', league.id);
 
         if (error) {
-            alert("Failed to delete league: " + error.message);
+            showError(error.message || "Failed to delete league");
         } else {
             // Redirect to User Dashboard
+            showSuccess('League deleted successfully');
             window.location.href = '/';
         }
     };
@@ -153,6 +155,7 @@ export default function LeagueDetailPage() {
         // Optimistic update
         setLeague({ ...league, name: editedName });
         setIsEditingName(false);
+            showSuccess('League name updated successfully');
 
         const { data, error } = await ((supabase.from('leagues') as any)
             .update({ name: editedName })
@@ -160,12 +163,12 @@ export default function LeagueDetailPage() {
             .select());
 
         if (error) {
-            alert("Failed to update league name: " + error.message);
+            showError(error.message || "Failed to update league name");
             setLeague({ ...league, name: previousName });
             setEditedName(previousName);
         } else if (!data || data.length === 0) {
             // No rows updated (likely RLS)
-            alert("Permission denied or League not found");
+            showError("Permission denied or League not found");
             setLeague({ ...league, name: previousName });
             setEditedName(previousName);
         }
@@ -179,7 +182,8 @@ export default function LeagueDetailPage() {
             .eq('id', memberId));
 
         if (error) {
-            alert(`Failed to update role: ${error.message}`);
+            showError(error.message || "Failed to update role");
+            showSuccess('Operation completed successfully');
             fetchAllData(league!.id);
         }
     };
@@ -192,7 +196,8 @@ export default function LeagueDetailPage() {
             .eq('id', memberId));
 
         if (error) {
-            alert("Failed to approve user.");
+            showError("Failed to approve user");
+            showSuccess('Operation completed successfully');
             fetchAllData(league!.id);
         }
     };
@@ -206,7 +211,8 @@ export default function LeagueDetailPage() {
             .eq('id', memberId);
 
         if (error) {
-            alert("Failed to reject user.");
+            showError("Failed to reject user");
+            showSuccess('Operation completed successfully');
             fetchAllData(league!.id);
         }
     };
@@ -220,7 +226,8 @@ export default function LeagueDetailPage() {
             .eq('id', memberId);
 
         if (error) {
-            alert(`Failed to kick member: ${error.message}`);
+            showError(error.message || "Failed to kick member");
+            showSuccess('Operation completed successfully');
             fetchAllData(league!.id);
         }
     };
@@ -257,7 +264,8 @@ export default function LeagueDetailPage() {
             .eq('id', tournamentId);
 
         if (error) {
-            alert(`Failed to delete tournament: ${error.message}`);
+            showError(error.message || "Failed to delete tournament");
+            showSuccess('Operation completed successfully');
             fetchAllData(league!.id);
         }
     };
@@ -299,6 +307,7 @@ export default function LeagueDetailPage() {
                                                 <button
                                                     onClick={() => {
                                                         setIsEditingName(false);
+            showSuccess('League name updated successfully');
                                                         setEditedName(league.name);
                                                     }}
                                                     className="p-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors"
