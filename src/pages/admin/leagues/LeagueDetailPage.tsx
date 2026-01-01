@@ -155,7 +155,7 @@ export default function LeagueDetailPage() {
         // Optimistic update
         setLeague({ ...league, name: editedName });
         setIsEditingName(false);
-            showSuccess('League name updated successfully');
+        showSuccess('League name updated successfully');
 
         const { data, error } = await ((supabase.from('leagues') as any)
             .update({ name: editedName })
@@ -183,8 +183,9 @@ export default function LeagueDetailPage() {
 
         if (error) {
             showError(error.message || "Failed to update role");
-            showSuccess('Operation completed successfully');
             fetchAllData(league!.id);
+        } else {
+            showSuccess('Role updated successfully');
         }
     };
 
@@ -307,7 +308,7 @@ export default function LeagueDetailPage() {
                                                 <button
                                                     onClick={() => {
                                                         setIsEditingName(false);
-            showSuccess('League name updated successfully');
+                                                        showSuccess('League name updated successfully');
                                                         setEditedName(league.name);
                                                     }}
                                                     className="p-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors"
