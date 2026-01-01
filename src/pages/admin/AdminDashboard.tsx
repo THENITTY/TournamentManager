@@ -6,6 +6,7 @@ import { Check, X, ShieldAlert, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import LeagueManager from '../../components/admin/LeagueManager';
 import AdminNavbar from '../../components/admin/AdminNavbar';
+import { showSuccess, showError } from '../../lib/toastUtils';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 
@@ -38,8 +39,8 @@ export default function AdminDashboard() {
 
         if (!error && data) {
             setProfiles(data);
-        } else {
-            console.error("Error fetching profiles:", error);
+        } else if (error) {
+            showError('Failed to load profiles');
         }
         setLoading(false);
     };
@@ -56,12 +57,14 @@ export default function AdminDashboard() {
 
         if (!error) {
             setProfiles(profiles.map(p => p.id === id ? { ...p, status: 'active' } : p));
+            showSuccess('User approved successfully');
+        } else {
+            showError('Failed to approve user');
         }
     };
 
-    const handleReject = async (id: string) => {
-        console.log("Rejecting user:", id);
-        alert("Rejection logic not strictly defined yet. (Consider 'Banning' or Deleting).");
+    const handleReject = async () => {
+        showError("Rejection logic not yet implemented. Please contact support.");
     };
 
     if (loading) return <div className="p-8"><Loader2 className="animate-spin" /></div>;
@@ -108,7 +111,7 @@ export default function AdminDashboard() {
                                             <Check />
                                         </button>
                                         <button
-                                            onClick={() => handleReject(user.id)}
+                                            onClick={() => handleReject()}
                                             className="p-2 hover:bg-red-500/20 text-red-500 rounded-lg transition-colors" title="Reject">
                                             <X />
                                         </button>

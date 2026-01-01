@@ -6,6 +6,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Trophy, Search, Users, Plus, Check, X } from 'lucide-react';
 import ProfileModal from '../../components/dashboard/ProfileModal';
 import Navbar from '../../components/Navbar';
+import { showSuccess, showError } from '../../lib/toastUtils';
 
 type BaseLeague = Database['public']['Tables']['leagues']['Row'];
 
@@ -101,7 +102,7 @@ export default function DashboardPage() {
             .single()) as any;
 
         if (leagueError) {
-            alert("Error creating league: " + leagueError.message);
+            showError(leagueError.message || 'Failed to create league');
             return;
         }
 
@@ -114,13 +115,14 @@ export default function DashboardPage() {
         }));
 
         if (memberError) {
-            alert("League created but failed to join as admin: " + memberError.message);
+            showError('League created but failed to join as admin');
         } else {
             // Optimistic Update
             setMyLeagues(prev => [{ ...leagueData, role: 'admin', status: 'approved' }, ...prev]);
             setIsCreating(false);
             setNewLeagueName('');
             setIsPublic(false);
+            showSuccess('League created successfully!');
         }
     };
 
@@ -139,7 +141,7 @@ export default function DashboardPage() {
             }));
 
             if (error) {
-                alert(`Failed to join league: ${error.message}`);
+                showError(error.message || 'Failed to join league');
                 return;
             }
 
@@ -148,10 +150,10 @@ export default function DashboardPage() {
             if (league) {
                 setAvailableLeagues(prev => prev.filter(l => l.id !== leagueId));
                 setMyLeagues(prev => [{ ...league, role: 'user', status: isSuperAdmin ? 'approved' : 'pending' }, ...prev]);
+                showSuccess(isSuperAdmin ? 'Joined league successfully!' : 'Join request sent! Waiting for approval.');
             }
         } catch (err: any) {
-            console.error("Error in handleJoin:", err);
-            alert("Unexpected error joining league.");
+            showError('Unexpected error joining league');
         }
     };
 

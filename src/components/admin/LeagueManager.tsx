@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import type { Database } from '../../types/database.types';
 import { Plus, Trophy, Calendar, ChevronRight, X, Check, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { showSuccess, showError } from '../../lib/toastUtils';
 
 type League = Database['public']['Tables']['leagues']['Row'];
 
@@ -60,9 +61,9 @@ export default function LeagueManager() {
             setIsPublic(false);
             setIsCreating(false);
             fetchLeagues();
+            showSuccess('League created successfully!');
         } else {
-            console.error("Error creating league", leagueError);
-            alert("Error creating league. Check console.");
+            showError(leagueError?.message || 'Failed to create league');
         }
         setLoading(false);
     };
@@ -84,9 +85,9 @@ export default function LeagueManager() {
         if (!error) {
             fetchLeagues();
             setDeleteTarget(null);
+            showSuccess('League deleted successfully');
         } else {
-            console.error("Error deleting league", error);
-            alert("Error deleting league");
+            showError(error?.message || 'Failed to delete league');
         }
     };
 
