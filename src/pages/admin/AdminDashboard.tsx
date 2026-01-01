@@ -179,7 +179,7 @@ export default function AdminDashboard() {
                                     {user.id !== currentUserId && (
                                         <button
                                             onClick={() => handleKick(user.id, `${user.first_name} ${user.last_name}`)}
-                                            className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-red-500/20 text-red-500 rounded transition-all"
+                                            className="p-1.5 hover:bg-red-500/20 text-red-500 rounded transition-all"
                                             title="Kick User"
                                         >
                                             <X size={16} />
