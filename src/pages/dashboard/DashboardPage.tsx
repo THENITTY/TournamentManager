@@ -45,35 +45,35 @@ export default function DashboardPage() {
             if (profileData) setProfile(profileData);
 
             // 2. Fetch joined leagues with Role & Status
-            const { data: memberships } = await supabase
-                .from('league_members')
+            const { data: memberships } = await (supabase
+                .from('league_members') as any)
                 .select('league_id, role, status')
                 .eq('user_id', user.id);
 
-            const joinedMap = new Map(memberships?.map(m => [m.league_id, { role: m.role, status: m.status }]) || []);
+            const joinedMap = new Map((memberships as any[])?.map(m => [m.league_id, { role: m.role, status: m.status }]) || []);
             const joinedIds = Array.from(joinedMap.keys());
 
             // 3. Fetch all active leagues
-            const { data: allLeagues } = await supabase
-                .from('leagues')
+            const { data: allLeagues } = await (supabase
+                .from('leagues') as any)
                 .select('*')
                 .eq('status', 'ongoing')
                 .order('created_at', { ascending: false });
 
             if (allLeagues) {
-                const my: League[] = allLeagues
-                    .filter(l => joinedIds.includes(l.id))
-                    .map(l => {
+                const my: League[] = (allLeagues as any[])
+                    .filter((l: any) => joinedIds.includes(l.id))
+                    .map((l: any) => {
                         const info = joinedMap.get(l.id);
                         return {
                             ...l,
                             role: (info?.role as 'admin' | 'co_admin' | 'user') || 'user',
-                            status: (profileData?.role === 'super_admin' ? 'approved' : (info?.status as 'pending' | 'approved')) || 'approved'
+                            status: (((profileData as any)?.role === 'super_admin' ? 'approved' : (info?.status as 'pending' | 'approved')) || 'approved') as any
                         };
                     });
 
                 setMyLeagues(my);
-                setAvailableLeagues(allLeagues.filter(l => !joinedIds.includes(l.id) && l.is_public));
+                setAvailableLeagues((allLeagues as any[]).filter((l: any) => !joinedIds.includes(l.id) && l.is_public));
             }
 
             setLoading(false);
@@ -88,17 +88,16 @@ export default function DashboardPage() {
 
         // 1. Create League
         // Note: created_by is added to schema. TS might complain if type not updated, casting to any/ignore for now.
-        const { data: leagueData, error: leagueError } = await supabase
-            .from('leagues')
+        const { data: leagueData, error: leagueError } = (await (supabase
+            .from('leagues') as any)
             .insert({
                 name: newLeagueName,
                 status: 'ongoing',
                 is_public: isPublic,
-                // @ts-ignore
                 created_by: profile.id
-            })
+            } as any)
             .select()
-            .single();
+            .single()) as any;
 
         if (leagueError) {
             alert("Error creating league: " + leagueError.message);
@@ -106,12 +105,12 @@ export default function DashboardPage() {
         }
 
         // 2. Add Creator as Admin
-        const { error: memberError } = await supabase.from('league_members').insert({
-            league_id: leagueData.id,
+        const { error: memberError } = await ((supabase.from('league_members') as any).insert({
+            league_id: (leagueData as any).id,
             user_id: profile.id,
             role: 'admin',
             status: 'approved'
-        });
+        }));
 
         if (memberError) {
             alert("League created but failed to join as admin: " + memberError.message);
@@ -131,12 +130,12 @@ export default function DashboardPage() {
         try {
             const isSuperAdmin = profile.role === 'super_admin';
 
-            const { error } = await supabase.from('league_members').insert({
+            const { error } = await ((supabase.from('league_members') as any).insert({
                 league_id: leagueId,
                 user_id: profile.id,
                 role: 'user',
                 status: isSuperAdmin ? 'approved' : 'pending'
-            });
+            }));
 
             if (error) {
                 alert(`Failed to join league: ${error.message}`);

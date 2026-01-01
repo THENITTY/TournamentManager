@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import type { Database } from '../../types/database.types';
 import { Check, X, ShieldAlert, Loader2 } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import LeagueManager from '../../components/admin/LeagueManager';
 import AdminNavbar from '../../components/admin/AdminNavbar';
 
@@ -25,8 +25,8 @@ export default function AdminDashboard() {
         }
 
         // Verify Super Admin
-        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-        if (profile?.role !== 'super_admin') {
+        const { data: profile } = await (supabase.from('profiles').select('role').eq('id', user.id).single() as any);
+        if ((profile as any)?.role !== 'super_admin') {
             navigate('/'); // Redirect unauthorized users
             return;
         }
@@ -49,11 +49,10 @@ export default function AdminDashboard() {
     }, []);
 
     const handleApprove = async (id: string) => {
-        const { error } = await supabase
-            .from('profiles')
-            // @ts-ignore
+        const { error } = await ((supabase
+            .from('profiles') as any)
             .update({ status: 'active' })
-            .eq('id', id);
+            .eq('id', id));
 
         if (!error) {
             setProfiles(profiles.map(p => p.id === id ? { ...p, status: 'active' } : p));
@@ -95,7 +94,7 @@ export default function AdminDashboard() {
                                 <div key={user.id} className="flex items-center justify-between bg-black/20 p-4 rounded-lg border border-white/5">
                                     <div className="flex items-center gap-4">
                                         <div className="h-10 w-10 bg-primary/20 rounded-full flex items-center justify-center text-primary font-bold">
-                                            {user.first_name[0]}{user.last_name[0]}
+                                            {(user as any).first_name[0]}{(user as any).last_name[0]}
                                         </div>
                                         <div>
                                             <h3 className="text-white font-medium">{user.first_name} {user.last_name}</h3>

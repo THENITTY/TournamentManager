@@ -21,8 +21,8 @@ export default function CreateTournamentPage() {
         console.log("DEBUG: Creating tournament for league:", leagueId);
         console.log("DEBUG: Payload:", { name, date, format });
 
-        const { data, error } = await supabase
-            .from('tournaments')
+        const { data, error } = await ((supabase
+            .from('tournaments') as any)
             .insert({
                 league_id: leagueId!,
                 name,
@@ -31,7 +31,7 @@ export default function CreateTournamentPage() {
                 status: 'setup'
             })
             .select() // Select ID
-            .single();
+            .single());
 
         if (error) {
             console.error("Error creating tournament:", error);

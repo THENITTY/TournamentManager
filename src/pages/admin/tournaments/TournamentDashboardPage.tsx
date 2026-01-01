@@ -74,7 +74,7 @@ export default function TournamentDashboardPage() {
             .eq('tournament_id', id)
             .order('created_at', { ascending: true });
 
-        if (data) setMatches(data as unknown as MatchWithPlayers[]);
+        if (data) setMatches(data as any);
     }, [id]);
 
     const fetchArchetypes = useCallback(async (leagueId: string) => {
@@ -88,16 +88,16 @@ export default function TournamentDashboardPage() {
     }, []);
 
     const fetchTournament = useCallback(async () => {
-        const { data } = await supabase
-            .from('tournaments')
+        const { data } = await (supabase
+            .from('tournaments') as any)
             .select('*')
             .eq('id', id!)
             .single();
 
         if (data) {
-            setTournament(data);
-            if (data.current_round) setViewRound(data.current_round);
-            fetchArchetypes(data.league_id);
+            setTournament(data as any);
+            if ((data as any).current_round) setViewRound((data as any).current_round);
+            fetchArchetypes((data as any).league_id);
         }
         setLoading(false);
     }, [id, fetchArchetypes]);
@@ -113,7 +113,7 @@ export default function TournamentDashboardPage() {
             .eq('tournament_id', id!)
             .order('joined_at', { ascending: true });
 
-        if (data) setParticipants(data as unknown as ParticipantWithUser[]);
+        if (data) setParticipants(data as any);
     }, [id]);
 
     useEffect(() => {
@@ -128,15 +128,15 @@ export default function TournamentDashboardPage() {
         if (!tournament) return;
 
         // Fetch all league members
-        const { data: members } = await supabase
-            .from('league_members')
+        const { data: members } = await (supabase
+            .from('league_members') as any)
             .select('user_id, profiles(id, first_name, last_name, avatar_url)')
-            .eq('league_id', tournament.league_id);
+            .eq('league_id', (tournament as any).league_id);
 
         if (members) {
             // Filter out those already in the tournament
             const participantIds = new Set(participants.map(p => p.user_id));
-            const available = members
+            const available = (members as any[])
                 .map(m => m.profiles) // flatten
                 .filter(p => p && !participantIds.has(p.id)); // valid profile & not joined
 
@@ -151,20 +151,19 @@ export default function TournamentDashboardPage() {
 
     const handleAddPlayer = async (userId: string) => {
         setAddingPlayer(true);
-        const { error } = await supabase
-            .from('tournament_participants')
+        const { error } = await ((supabase
+            .from('tournament_participants') as any)
             .insert({
                 tournament_id: id!,
                 user_id: userId
-            });
+            }));
 
         if (error) {
             alert("Failed to add player: " + error.message);
         } else {
-            fetchParticipants(); // Refresh list
-            setIsAddModalOpen(false); // Close modale or keep open? Let's close for now or refresh available list
-            // Better UX: Remove from available list immediately
-            setAvailableMembers(prev => prev.filter(m => m.id !== userId));
+            fetchParticipants();
+            setIsAddModalOpen(false);
+            setAvailableMembers(prev => (prev as any[]).filter(m => m.id !== userId));
         }
         setAddingPlayer(false);
     };
@@ -185,20 +184,20 @@ export default function TournamentDashboardPage() {
         // 2. Find Deck for this User + Archetype
         let deckId: string | null = null;
 
-        const { data: existingDeck } = await supabase
+        const { data: existingDeck } = await (supabase
             .from('decks')
             .select('id')
             .eq('user_id', participant.user_id)
             .eq('archetype_id', archetypeId)
             .eq('league_id', tournament.league_id)
-            .maybeSingle();
+            .maybeSingle() as any);
 
         if (existingDeck) {
             deckId = existingDeck.id;
         } else {
             // 3. Create New Deck if not exists
             const selectedArchetype = archetypes.find(a => a.id === archetypeId);
-            const { data: newDeck, error: createError } = await supabase
+            const { data: newDeck, error: createError } = await (supabase
                 .from('decks')
                 .insert({
                     user_id: participant.user_id,
@@ -206,9 +205,9 @@ export default function TournamentDashboardPage() {
                     league_id: tournament.league_id,
                     name: selectedArchetype?.name || 'New Deck',
                     format: tournament.format
-                })
+                } as any)
                 .select()
-                .single();
+                .single() as any);
 
             if (createError || !newDeck) {
                 alert("Failed to create deck: " + (createError?.message || "Unknown error"));
@@ -239,10 +238,10 @@ export default function TournamentDashboardPage() {
 
         setIsDeckModalOpen(false);
 
-        const { error } = await supabase
-            .from('tournament_participants')
-            .update({ deck_id: deckId })
-            .eq('id', selectedParticipantIdForDeck);
+        const { error } = await ((supabase
+            .from('tournament_participants') as any)
+            .update({ deck_id: deckId } as any)
+            .eq('id', selectedParticipantIdForDeck));
 
         if (error) {
             alert("Failed to assign deck: " + error.message);
@@ -281,7 +280,7 @@ export default function TournamentDashboardPage() {
             // Convert participants to the shape expected (if needed) but state should be fine
             // We need to map our enriched matches to raw MatchRow if the utility expects strict MatchRow,
             // but the utility only cares about fields present in MatchRow.
-            const stats = calculateStandings(participants, matches, tournament.current_round ?? 1);
+            const stats = calculateStandings(participants, matches as any, (tournament as any).current_round ?? 1);
             setStandings(stats);
         }
     }, [participants, matches, tournament]);
@@ -302,7 +301,7 @@ export default function TournamentDashboardPage() {
 
         // Standard Next Round Logic (Generate Pairings)
         // 1. Calculate stats with current state (for pairings this is distinct from final standings persistence)
-        const currentStats = calculateStandings(participants, matches, tournament.current_round ?? 1);
+        const currentStats = calculateStandings(participants, matches as any, (tournament as any).current_round ?? 1);
 
         // 2. Update Stats in DB (Incremental update for display)
         const updates = currentStats.map((p, index) => ({
@@ -314,28 +313,27 @@ export default function TournamentDashboardPage() {
             omw: p.omw,
             rank: index + 1
         }));
-        await supabase.from('tournament_participants').upsert(updates);
+        await ((supabase.from('tournament_participants') as any).upsert(updates as any));
 
         // 3. Generate Next Round Pairings
         const nextRound = (tournament.current_round ?? 0) + 1;
         const newPairings = generateNextRoundPairings(
-            tournament.id,
+            (tournament as any).id,
             nextRound,
             currentStats,
-            matches
+            matches as any
         );
 
-        const { error: pairError } = await supabase.from('matches').insert(newPairings);
+        const { error: pairError } = await ((supabase.from('matches') as any).insert(newPairings as any));
         if (pairError) {
             alert("Failed to generate pairings: " + pairError.message);
             return;
         }
 
         // 4. Update Tournament Round
-        const { error: roundError } = await supabase
-            .from('tournaments')
-            .update({ current_round: nextRound })
-            .eq('id', tournament.id);
+        const { error: roundError } = await ((supabase.from('tournaments') as any)
+            .update({ current_round: nextRound } as any)
+            .eq('id', (tournament as any).id));
 
         if (roundError) {
             alert("Failed to update round: " + roundError.message);
@@ -368,8 +366,8 @@ export default function TournamentDashboardPage() {
             // 2. Calculate Final Standings
             const finalStats = calculateStandings(
                 freshParticipants as unknown as ParticipantWithUser[],
-                freshMatches,
-                tournament.total_rounds ?? tournament.current_round ?? 1
+                freshMatches as any,
+                (tournament as any).total_rounds ?? (tournament as any).current_round ?? 1
             );
 
             // 3. Persist Standings
@@ -383,14 +381,13 @@ export default function TournamentDashboardPage() {
                 rank: index + 1
             }));
 
-            const { error: statsError } = await supabase.from('tournament_participants').upsert(updates);
+            const { error: statsError } = await ((supabase.from('tournament_participants') as any).upsert(updates as any));
             if (statsError) throw statsError;
 
             // 4. Mark Tournament Completed
-            const { error: finishError } = await supabase
-                .from('tournaments')
-                .update({ status: 'completed' })
-                .eq('id', tournament.id);
+            const { error: finishError } = await ((supabase.from('tournaments') as any)
+                .update({ status: 'completed' } as any)
+                .eq('id', (tournament as any).id));
 
             if (finishError) throw finishError;
 
@@ -440,9 +437,9 @@ export default function TournamentDashboardPage() {
         const pairings = generateRound1Pairings(tournament.id, simpleParticipants);
 
         // 2. Insert Matches
-        const { error: matchError } = await supabase
-            .from('matches')
-            .insert(pairings);
+        const { error: matchError } = await ((supabase
+            .from('matches') as any)
+            .insert(pairings as any));
 
         if (matchError) {
             alert("Failed to create pairings: " + matchError.message);
@@ -450,14 +447,13 @@ export default function TournamentDashboardPage() {
         }
 
         // 3. Update Tournament Status
-        const { error } = await supabase
-            .from('tournaments')
+        const { error } = await ((supabase.from('tournaments') as any)
             .update({
                 status: 'active',
                 current_round: 1,
                 total_rounds: finalRounds
-            })
-            .eq('id', tournament.id);
+            } as any)
+            .eq('id', (tournament as any).id));
 
         if (error) {
             alert("Failed to start: " + error.message);
@@ -528,14 +524,13 @@ export default function TournamentDashboardPage() {
     const submitMatchResult = async (p1Score: number, p2Score: number, winnerId: string | null) => {
         if (!reportingMatch) return;
 
-        const { error } = await supabase
-            .from('matches')
+        const { error } = await ((supabase.from('matches') as any)
             .update({
                 score_p1: p1Score,
                 score_p2: p2Score,
                 winner_id: winnerId
-            })
-            .eq('id', reportingMatch.id);
+            } as any)
+            .eq('id', (reportingMatch as any).id));
 
         if (error) {
             alert("Error reporting result: " + error.message);
@@ -558,17 +553,17 @@ export default function TournamentDashboardPage() {
             }
             if (user && tournament) {
                 // Check Global Role
-                const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-                if (profile) setIsGlobalSuperAdmin(profile.role === 'super_admin');
+                const { data: profile } = (await (supabase.from('profiles') as any).select('role').eq('id', user.id).single());
+                if (profile) setIsGlobalSuperAdmin((profile as any).role === 'super_admin');
 
                 // Check League Role
-                const { data: member } = await supabase.from('league_members')
+                const { data: member } = (await (supabase.from('league_members') as any)
                     .select('role')
-                    .eq('league_id', tournament.league_id)
+                    .eq('league_id', (tournament as any).league_id)
                     .eq('user_id', user.id)
-                    .single();
+                    .single());
                 if (member) {
-                    setCurrentUserRole(member.role);
+                    setCurrentUserRole((member as any).role);
                 }
             }
         };

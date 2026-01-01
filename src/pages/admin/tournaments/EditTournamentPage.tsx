@@ -38,11 +38,12 @@ export default function EditTournamentPage() {
             alert("Tournament not found");
             navigate('/admin'); // Fallback
         } else if (data) {
-            setTournament(data);
-            setName(data.name);
-            setDate(data.date);
-            setStatus(data.status);
-            setFormat(data.format);
+            const d = data as any;
+            setTournament(d);
+            setName(d.name);
+            setDate(d.date);
+            setStatus(d.status);
+            setFormat(d.format);
         }
         setLoading(false);
     };
@@ -51,14 +52,14 @@ export default function EditTournamentPage() {
         e.preventDefault();
         setSaving(true);
 
-        const { error } = await supabase
-            .from('tournaments')
+        const { error } = await ((supabase
+            .from('tournaments') as any)
             .update({
                 name,
                 date,
                 format
             })
-            .eq('id', id!);
+            .eq('id', id!));
 
         if (error) {
             console.error("Error updating tournament:", error);
@@ -74,8 +75,8 @@ export default function EditTournamentPage() {
     const handleDelete = async () => {
         // if (!confirm("CRITICAL WARNING: Deleting this tournament will wipe ALL matches and standings. This cannot be undone. Are you sure?")) return;
 
-        const { error } = await supabase
-            .from('tournaments')
+        const { error } = await (supabase
+            .from('tournaments') as any)
             .delete()
             .eq('id', id!);
 

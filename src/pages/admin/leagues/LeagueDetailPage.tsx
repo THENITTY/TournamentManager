@@ -64,7 +64,7 @@ export default function LeagueDetailPage() {
                 .single();
 
             if (profile) {
-                setIsGlobalSuperAdmin(profile.role === 'super_admin');
+                setIsGlobalSuperAdmin((profile as any).role === 'super_admin');
             }
 
             // Check League Role
@@ -76,7 +76,7 @@ export default function LeagueDetailPage() {
                 .single();
 
             if (member) {
-                setCurrentLeagueRole(member.role);
+                setCurrentLeagueRole((member as any).role);
             }
         }
 
@@ -118,10 +118,9 @@ export default function LeagueDetailPage() {
         // Optimistic UI Update
         setLeague(prev => prev ? { ...prev, is_public: newStatus } : null);
 
-        const { error } = await supabase
-            .from('leagues')
+        const { error } = await ((supabase.from('leagues') as any)
             .update({ is_public: newStatus })
-            .eq('id', league.id);
+            .eq('id', league.id));
 
         if (error) {
             console.error(error);
@@ -155,11 +154,10 @@ export default function LeagueDetailPage() {
         setLeague({ ...league, name: editedName });
         setIsEditingName(false);
 
-        const { data, error } = await supabase
-            .from('leagues')
+        const { data, error } = await ((supabase.from('leagues') as any)
             .update({ name: editedName })
             .eq('id', league.id)
-            .select();
+            .select());
 
         if (error) {
             alert("Failed to update league name: " + error.message);
@@ -176,10 +174,9 @@ export default function LeagueDetailPage() {
     const handleRoleChange = async (memberId: string, newRole: LeagueRole) => {
         setMembers(prev => prev.map(m => m.id === memberId ? { ...m, role: newRole } : m));
 
-        const { error } = await supabase
-            .from('league_members')
+        const { error } = await ((supabase.from('league_members') as any)
             .update({ role: newRole })
-            .eq('id', memberId);
+            .eq('id', memberId));
 
         if (error) {
             alert(`Failed to update role: ${error.message}`);
@@ -190,10 +187,9 @@ export default function LeagueDetailPage() {
     const handleApprove = async (memberId: string) => {
         setMembers(prev => prev.map(m => m.id === memberId ? { ...m, status: 'approved' } : m));
 
-        const { error } = await supabase
-            .from('league_members')
+        const { error } = await ((supabase.from('league_members') as any)
             .update({ status: 'approved' })
-            .eq('id', memberId);
+            .eq('id', memberId));
 
         if (error) {
             alert("Failed to approve user.");

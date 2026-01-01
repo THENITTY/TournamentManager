@@ -44,10 +44,7 @@ export const generateRound1Pairings = (
             round_number: 1,
             player1_id: playing[i].id,
             player2_id: playing[i + 1].id,
-            is_bye: false,
-            // score_p1 and score_p2 should be null/undefined for pending matches
-            score_p1: null,
-            score_p2: null
+            is_bye: false
         });
     }
 
@@ -220,9 +217,7 @@ export const generateNextRoundPairings = (
                     round_number: currentRound,
                     player1_id: p1.id,
                     player2_id: p2.id,
-                    is_bye: false,
-                    score_p1: null,
-                    score_p2: null
+                    is_bye: false
                 };
 
                 const remaining = [...pool];
@@ -250,9 +245,7 @@ export const generateNextRoundPairings = (
                 round_number: currentRound,
                 player1_id: players[i].id,
                 player2_id: players[i + 1].id,
-                is_bye: false,
-                score_p1: null,
-                score_p2: null
+                is_bye: false
             });
         }
         result = relaxedPairings;

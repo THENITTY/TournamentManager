@@ -32,25 +32,28 @@ export default function LeagueManager() {
 
         setLoading(true);
         // Explicitly cast to const to match DB type
-        const { data: leagueData, error: leagueError } = await supabase
-            .from('leagues')
+        const { data: leagueData, error: leagueError } = await ((supabase
+            .from('leagues') as any)
             .insert({
                 name: newLeagueName,
                 status: 'ongoing' as const,
-                is_public: isPublic
+                is_public: isPublic,
+                format: 'Swiss',
+                start_date: new Date().toISOString()
             })
             .select()
-            .single();
+            .single());
 
         if (!leagueError && leagueData) {
             // Auto-join the creator to the league
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
-                await supabase.from('league_members').insert({
-                    league_id: leagueData.id,
+                await ((supabase.from('league_members') as any).insert({
+                    league_id: (leagueData as any).id,
                     user_id: user.id,
-                    role: 'admin'
-                });
+                    role: 'admin' as const,
+                    status: 'approved' as const
+                }));
             }
 
             setNewLeagueName('');

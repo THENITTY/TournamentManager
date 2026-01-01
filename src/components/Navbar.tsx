@@ -13,10 +13,11 @@ export default function Navbar() {
         const checkUser = async () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
-                const { data } = await supabase.from('profiles').select('first_name, role').eq('id', user.id).single();
+                const { data } = await (supabase.from('profiles') as any).select('first_name, role').eq('id', user.id).single();
                 if (data) {
-                    setIsSuperAdmin(data.role === 'super_admin');
-                    setUserName(data.first_name);
+                    const profile = data as { first_name: string; role: string };
+                    setIsSuperAdmin(profile.role === 'super_admin');
+                    setUserName(profile.first_name);
                 }
             }
         };

@@ -90,8 +90,8 @@ export default function ProfileModal({ isOpen, onClose, currentProfile, onUpdate
                 avatar_url: newAvatarUrl,
             };
 
-            const { error: profileError } = await supabase
-                .from('profiles')
+            const { error: profileError } = await (supabase
+                .from('profiles') as any)
                 .update(updates)
                 .eq('id', currentProfile.id);
 
