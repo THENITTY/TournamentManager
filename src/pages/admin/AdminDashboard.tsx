@@ -69,7 +69,9 @@ export default function AdminDashboard() {
             return;
         }
 
-        // 1. Delete profile (cascades to league memberships, tournament participants, etc.)
+        // Delete profile (cascades to league memberships, tournament participants, etc.)
+        // Note: We don't delete the auth user as it requires Service Role Key (backend only).
+        // The user can still re-register because the profile is deleted.
         const { error: profileError } = await supabase
             .from('profiles')
             .delete()
@@ -80,17 +82,10 @@ export default function AdminDashboard() {
             return;
         }
 
-        // 2. Delete auth user (allows re-registration with same email)
-        const { error: authError } = await supabase.auth.admin.deleteUser(userId);
+        // Success - profile deleted, user can re-register
+        showSuccess('User rejected successfully. They can re-register with the same email.');
 
-        if (authError) {
-            // Profile is already deleted, so we continue but warn
-            showError('Profile deleted but failed to remove auth user. User may need manual cleanup.');
-        } else {
-            showSuccess('User rejected successfully. They can now re-register if needed.');
-        }
-
-        // 3. Update UI
+        // Update UI
         setProfiles(profiles.filter(p => p.id !== userId));
     };
 
