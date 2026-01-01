@@ -81,7 +81,7 @@ export default function TournamentDashboardPage() {
     const fetchArchetypes = useCallback(async (leagueId: string) => {
         const { data } = await supabase
             .from('archetypes')
-            .select('*')
+            .select('*, archetype_compositions(card:cards(id, name, image_url, small_image_url))')
             .eq('league_id', leagueId)
             .order('name', { ascending: true });
 
