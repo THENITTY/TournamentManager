@@ -4,6 +4,7 @@ import { supabase } from '../../../lib/supabase';
 import { ArrowLeft, Calendar, Users, Trophy, Swords, Trash2, Pencil } from 'lucide-react';
 import AdminNavbar from '../../../components/admin/AdminNavbar';
 import type { Database } from '../../../types/database.types';
+import DeckImage from '../../../components/decks/DeckImage';
 
 import { generateRound1Pairings, calculateStandings, generateNextRoundPairings, type ParticipantStats } from '../../../lib/tournament/pairingUtils';
 
@@ -919,11 +920,7 @@ export default function TournamentDashboardPage() {
                                                                 >
                                                                     {deck.archetypes?.cover_image_url ? (
                                                                         <div className="w-12 h-12 rounded-lg overflow-hidden shadow ring-1 ring-white/10 relative">
-                                                                            <img
-                                                                                src={deck.archetypes.cover_image_url}
-                                                                                alt="Deck"
-                                                                                className="w-full h-full object-cover object-[center_25%] scale-150"
-                                                                            />
+                                                                            <DeckImage archetype={deck.archetypes as any} />
                                                                         </div>
                                                                     ) : (
                                                                         <div className="w-12 h-12 bg-gray-800 rounded-lg flex items-center justify-center text-xs text-gray-500 border border-white/10">?</div>
@@ -1091,11 +1088,7 @@ export default function TournamentDashboardPage() {
                                 >
                                     {arch.cover_image_url ? (
                                         <div className="w-16 h-16 rounded-xl overflow-hidden shadow relative border border-white/10 shrink-0">
-                                            <img
-                                                src={arch.cover_image_url}
-                                                alt="Cover"
-                                                className="w-full h-full object-cover object-[center_25%] scale-150"
-                                            />
+                                            <DeckImage archetype={arch} />
                                         </div>
                                     ) : (
                                         <div className="w-16 h-16 bg-gray-800 rounded-xl flex items-center justify-center shrink-0">?</div>

@@ -4,6 +4,7 @@ import type { Database } from '../../../types/database.types';
 import { ArrowLeft, Search, Plus, Save, Trash2, Library, Edit, Layers, X } from 'lucide-react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import AdminNavbar from '../../../components/admin/AdminNavbar';
+import DeckImage from '../../../components/decks/DeckImage';
 
 type Archetype = Database['public']['Tables']['archetypes']['Row'] & {
     archetype_compositions?: {
@@ -240,79 +241,7 @@ export default function ArchetypeLibraryPage() {
         if (!error) fetchArchetypes();
     };
 
-    // --- Render Logic for Split Images ---
-    const renderSplitView = (images: string[]) => {
-        if (images.length === 0) return <div className="w-full h-full bg-gray-800" />;
-
-        // 2 Components: Vertical Diagonal Split
-        if (images.length === 2) {
-            return (
-                <div className="w-full h-full relative">
-                    <img
-                        src={images[0]}
-                        className="absolute inset-0 w-full h-full object-cover"
-                        style={{ clipPath: 'polygon(0 0, 65% 0, 35% 100%, 0 100%)', zIndex: 1 }}
-                    />
-                    <div className="absolute inset-0 bg-black/50" style={{ clipPath: 'polygon(64% 0, 66% 0, 36% 100%, 34% 100%)', zIndex: 2 }} /> {/* Divider Line */}
-                    <img
-                        src={images[1]}
-                        className="absolute inset-0 w-full h-full object-cover"
-                        style={{ clipPath: 'polygon(65% 0, 100% 0, 100% 100%, 35% 100%)', zIndex: 1 }}
-                    />
-                </div>
-            );
-        }
-
-        // 3+ Components: Fan Split
-        return (
-            <div className="w-full h-full relative">
-                {/* Primary Left */}
-                <img
-                    src={images[0]}
-                    className="absolute inset-0 w-full h-full object-cover"
-                    style={{ clipPath: 'polygon(0 0, 70% 0, 30% 100%, 0 100%)', zIndex: 2 }}
-                />
-
-                {/* Top Right */}
-                <img
-                    src={images[1] || images[0]}
-                    className="absolute inset-0 w-full h-full object-cover"
-                    style={{ clipPath: 'polygon(70% 0, 100% 0, 100% 50%, 50% 50%)', zIndex: 1 }}
-                />
-
-                {/* Bottom Right */}
-                <img
-                    src={images[2] || images[0]}
-                    className="absolute inset-0 w-full h-full object-cover"
-                    style={{ clipPath: 'polygon(50% 50%, 100% 50%, 100% 100%, 30% 100%)', zIndex: 1 }}
-                />
-
-                {/* Dividers */}
-                <div className="absolute inset-0 bg-black/50" style={{ clipPath: 'polygon(69% 0, 71% 0, 51% 50%, 49% 50%)', zIndex: 3 }} />
-                <div className="absolute inset-0 bg-black/50" style={{ clipPath: 'polygon(49% 50%, 51% 50%, 31% 100%, 29% 100%)', zIndex: 3 }} />
-                <div className="absolute inset-0 bg-black/50" style={{ clipPath: 'polygon(50% 49%, 100% 49%, 100% 51%, 50% 51%)', zIndex: 3 }} />
-            </div>
-        );
-    };
-
-    const renderDeckImage = (arch: Archetype) => {
-        if (!arch.is_hybrid) {
-            return (
-                <img
-                    src={arch.cover_image_url}
-                    alt={arch.name}
-                    className="w-full h-full object-cover object-[center_20%] scale-150"
-                />
-            );
-        }
-
-        // It is a hybrid: get component cards
-        const comps = arch.archetype_compositions?.map(ac => ac.card) || [];
-        // Flatten to images
-        const images = comps.map(c => c.image_url).filter(Boolean);
-
-        return renderSplitView(images);
-    };
+    // Rendering logic moved to DeckImage component
 
     return (
         <div className="min-h-screen bg-background pb-12">
@@ -465,13 +394,17 @@ export default function ArchetypeLibraryPage() {
                                     <>
                                         <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-2 border-primary overflow-hidden mb-3 relative shadow-[0_0_20px_rgba(234,179,8,0.2)]">
                                             {isHybrid ? (
-                                                <div className="w-full h-full relative">
-                                                    {hybridComponents.length > 0 ? (
-                                                        renderSplitView(hybridComponents.map(c => c.image_url))
-                                                    ) : (
-                                                        <div className="w-full h-full bg-gray-700 animate-pulse" />
-                                                    )}
-                                                </div>
+                                                hybridComponents.length > 0 ? (
+                                                    <DeckImage
+                                                        archetype={{
+                                                            ...editingArchetype,
+                                                            is_hybrid: true,
+                                                            archetype_compositions: hybridComponents.map(c => ({ card: c }))
+                                                        } as any}
+                                                    />
+                                                ) : (
+                                                    <div className="w-full h-full bg-gray-700 animate-pulse" />
+                                                )
                                             ) : (
                                                 <img
                                                     src={selectedCard?.image_url || editingArchetype?.cover_image_url || ''}
@@ -501,7 +434,7 @@ export default function ArchetypeLibraryPage() {
                     {archetypes.map(arch => (
                         <div key={arch.id} className="group flex items-center gap-4 bg-surface border border-white/5 p-4 rounded-xl hover:border-primary/50 transition-all">
                             <div className="shrink-0 w-12 h-12 rounded-lg overflow-hidden border border-white/10 relative">
-                                {renderDeckImage(arch)}
+                                <DeckImage archetype={arch} />
                             </div>
 
                             <div className="flex-1 min-w-0">
