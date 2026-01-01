@@ -63,8 +63,35 @@ export default function AdminDashboard() {
         }
     };
 
-    const handleReject = async () => {
-        showError("Rejection logic not yet implemented. Please contact support.");
+    const handleReject = async (userId: string, userName: string) => {
+        // Confirmation dialog
+        if (!window.confirm(`Reject ${userName}? This will permanently delete their account and allow them to re-register.`)) {
+            return;
+        }
+
+        // 1. Delete profile (cascades to league memberships, tournament participants, etc.)
+        const { error: profileError } = await supabase
+            .from('profiles')
+            .delete()
+            .eq('id', userId);
+
+        if (profileError) {
+            showError('Failed to reject user: ' + profileError.message);
+            return;
+        }
+
+        // 2. Delete auth user (allows re-registration with same email)
+        const { error: authError } = await supabase.auth.admin.deleteUser(userId);
+
+        if (authError) {
+            // Profile is already deleted, so we continue but warn
+            showError('Profile deleted but failed to remove auth user. User may need manual cleanup.');
+        } else {
+            showSuccess('User rejected successfully. They can now re-register if needed.');
+        }
+
+        // 3. Update UI
+        setProfiles(profiles.filter(p => p.id !== userId));
     };
 
     if (loading) return <div className="p-8"><Loader2 className="animate-spin" /></div>;
@@ -111,7 +138,7 @@ export default function AdminDashboard() {
                                             <Check />
                                         </button>
                                         <button
-                                            onClick={() => handleReject()}
+                                            onClick={() => handleReject(user.id, `${user.first_name} ${user.last_name}`)}
                                             className="p-2 hover:bg-red-500/20 text-red-500 rounded-lg transition-colors" title="Reject">
                                             <X />
                                         </button>
