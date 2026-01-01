@@ -48,14 +48,37 @@ export default function RegisterPage() {
             }
 
             // Check if profile exists
-            const { data: existingProfile } = await supabase
-                .from('profiles')
-                .select('id')
+            const { data: existingProfile } = await ((supabase
+                .from('profiles') as any)
+                .select('id, deleted_at')
                 .eq('id', signInData.user.id)
-                .maybeSingle();
+                .maybeSingle() as any);
 
             if (existingProfile) {
-                // Profile exists, user should sign in instead
+                if (existingProfile.deleted_at) {
+                    // Profile was soft-deleted, reactivate it
+                    const { error: reactivateError } = await ((supabase
+                        .from('profiles') as any)
+                        .update({
+                            first_name: formData.firstName,
+                            last_name: formData.lastName,
+                            status: 'pending',
+                            deleted_at: null // Reactivate
+                        } as any)
+                        .eq('id', signInData.user.id));
+
+                    if (reactivateError) {
+                        setError('Failed to reactivate account: ' + reactivateError.message);
+                        setLoading(false);
+                        return;
+                    }
+
+                    // Success - redirect to pending
+                    navigate('/pending-approval');
+                    return;
+                }
+
+                // Profile exists and is active, user should sign in instead
                 setError('Account already exists. Please sign in.');
                 await supabase.auth.signOut(); // Sign out the user we just signed in
                 setLoading(false);

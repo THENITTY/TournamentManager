@@ -15,7 +15,7 @@ export default function LoginPage() {
         setLoading(true);
         setError(null);
 
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
             email,
             password,
         });
@@ -23,10 +23,24 @@ export default function LoginPage() {
         if (error) {
             setError(error.message);
             setLoading(false);
-        } else {
-            // Navigation handled by AuthStateListener (to be implemented) or direct redirect
-            navigate('/');
+            return;
         }
+
+        // Check if user is soft-deleted
+        const { data: profile } = await ((supabase
+            .from('profiles') as any)
+            .select('deleted_at')
+            .eq('id', data.user.id)
+            .single() as any);
+
+        if (profile?.deleted_at) {
+            await supabase.auth.signOut();
+            setError('Your account has been deactivated. Please contact support or re-register.');
+            setLoading(false);
+            return;
+        }
+
+        navigate('/');
     };
 
     return (

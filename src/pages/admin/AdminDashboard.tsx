@@ -12,6 +12,7 @@ type Profile = Database['public']['Tables']['profiles']['Row'];
 
 export default function AdminDashboard() {
     const [profiles, setProfiles] = useState<Profile[]>([]);
+    const [currentUserId, setCurrentUserId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const navigate = useNavigate();
 
@@ -35,10 +36,12 @@ export default function AdminDashboard() {
         const { data, error } = await supabase
             .from('profiles')
             .select('*')
+            .is('deleted_at', null)
             .order('created_at', { ascending: false });
 
         if (!error && data) {
             setProfiles(data);
+            setCurrentUserId(user.id);
         } else if (error) {
             showError('Failed to load profiles');
         }
@@ -61,6 +64,26 @@ export default function AdminDashboard() {
         } else {
             showError('Failed to approve user');
         }
+    };
+
+    const handleKick = async (userId: string, userName: string) => {
+        if (!window.confirm(`Kick ${userName}? They will be logged out but historical data will be preserved. They can re-register.`)) {
+            return;
+        }
+
+        // Soft delete: set deleted_at timestamp
+        const { error } = await ((supabase
+            .from('profiles') as any)
+            .update({ deleted_at: new Date().toISOString() } as any)
+            .eq('id', userId));
+
+        if (error) {
+            showError('Failed to kick user: ' + error.message);
+            return;
+        }
+
+        setProfiles(profiles.filter(p => p.id !== userId));
+        showSuccess('User kicked successfully. Historical data preserved.');
     };
 
     const handleReject = async (userId: string, userName: string) => {
@@ -145,13 +168,24 @@ export default function AdminDashboard() {
                 </section>
 
                 {/* Active Users Section */}
-                <section className="bg-surface border border-white/5 rounded-xl p-6 opacity-60">
+                <section className="bg-surface border border-white/5 rounded-xl p-6">
                     <h2 className="text-xl font-semibold text-white mb-4">Active Duelists ({activeUsers.length})</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {activeUsers.map(user => (
-                            <div key={user.id} className="p-3 bg-black/20 rounded border border-white/5 flex justify-between">
+                            <div key={user.id} className="p-3 bg-black/20 rounded border border-white/5 flex justify-between items-center group">
                                 <span className="text-gray-300">{user.first_name} {user.last_name}</span>
-                                <span className="text-xs px-2 py-1 rounded bg-primary/10 text-primary capitalize">{user.role}</span>
+                                <div className="flex items-center gap-3">
+                                    <span className="text-xs px-2 py-1 rounded bg-primary/10 text-primary capitalize">{user.role}</span>
+                                    {user.id !== currentUserId && (
+                                        <button
+                                            onClick={() => handleKick(user.id, `${user.first_name} ${user.last_name}`)}
+                                            className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-red-500/20 text-red-500 rounded transition-all"
+                                            title="Kick User"
+                                        >
+                                            <X size={16} />
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         ))}
                     </div>
