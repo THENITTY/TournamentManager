@@ -341,7 +341,7 @@ export default function TournamentDashboardPage() {
             showError(roundError.message || "Failed to update round");
         } else {
             fetchTournament();
-            showSuccess('Match result saved successfully');
+            showSuccess('Round ' + nextRound + ' started successfully!');
             fetchMatches();
             setActiveTab('pairings');
         }
