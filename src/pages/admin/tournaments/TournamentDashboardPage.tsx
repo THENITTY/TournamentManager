@@ -109,7 +109,7 @@ export default function TournamentDashboardPage() {
             .select(`
                 *,
                 user:profiles(id, first_name, last_name, avatar_url),
-                deck:decks(id, archetypes(name, cover_image_url))
+                deck:decks(id, archetypes(name, cover_image_url, is_hybrid, archetype_compositions(card:cards(id, name, image_url, small_image_url))))
             `)
             .eq('tournament_id', id!)
             .order('joined_at', { ascending: true });
