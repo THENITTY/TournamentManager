@@ -32,15 +32,12 @@ export default function LeagueManager() {
         if (!newLeagueName.trim()) return;
 
         setLoading(true);
-        // Explicitly cast to const to match DB type
         const { data: leagueData, error: leagueError } = await ((supabase
             .from('leagues') as any)
             .insert({
                 name: newLeagueName,
                 status: 'ongoing' as const,
-                is_public: isPublic,
-                format: 'Swiss',
-                start_date: new Date().toISOString()
+                is_public: isPublic
             })
             .select()
             .single());

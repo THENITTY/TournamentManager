@@ -27,7 +27,7 @@ function App() {
           },
           success: {
             iconTheme: {
-              primary: '#eab308',
+              primary: '#22c55e', // green-500
               secondary: '#000',
             },
           },

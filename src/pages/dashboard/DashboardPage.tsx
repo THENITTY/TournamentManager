@@ -89,14 +89,12 @@ export default function DashboardPage() {
         if (!newLeagueName.trim() || !profile || !canCreateLeague) return;
 
         // 1. Create League
-        // Note: created_by is added to schema. TS might complain if type not updated, casting to any/ignore for now.
         const { data: leagueData, error: leagueError } = (await (supabase
             .from('leagues') as any)
             .insert({
                 name: newLeagueName,
                 status: 'ongoing',
-                is_public: isPublic,
-                created_by: profile.id
+                is_public: isPublic
             } as any)
             .select()
             .single()) as any;
