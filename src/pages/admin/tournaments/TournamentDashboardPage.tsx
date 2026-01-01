@@ -220,9 +220,9 @@ export default function TournamentDashboardPage() {
 
         // 4. Assign Deck to Participant
         // Optimistic Update
+        const selectedArchetype = archetypes.find(a => a.id === archetypeId); // Re-find for optimistic update
         setParticipants(prev => prev.map(p => {
             if (p.id === selectedParticipantIdForDeck) {
-                const selectedArchetype = archetypes.find(a => a.id === archetypeId);
                 return {
                     ...p,
                     deck_id: deckId,
@@ -247,7 +247,10 @@ export default function TournamentDashboardPage() {
 
         if (error) {
             showError(error.message || "Failed to assign deck");
-            fetchParticipants(); // Revert
+            fetchParticipants(); // Revert on error
+        } else {
+            // Reload participants to get full archetype data (including compositions for hybrid decks)
+            fetchParticipants();
         }
     };
 
