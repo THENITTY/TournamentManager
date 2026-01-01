@@ -20,7 +20,7 @@ export default function RegisterPage() {
         setLoading(true);
         setError(null);
 
-        // 1. Sign Up with Metadata (Trigger will create profile)
+        // 1. Try to sign up
         const { data: authData, error: authError } = await supabase.auth.signUp({
             email: formData.email,
             password: formData.password,
@@ -32,13 +32,66 @@ export default function RegisterPage() {
             }
         });
 
+        // 2. Handle "User already registered" error (re-registration case)
+        if (authError?.message === 'User already registered') {
+            // User exists in Auth but profile might have been deleted
+            // Try to sign in to get the user ID
+            const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+                email: formData.email,
+                password: formData.password,
+            });
+
+            if (signInError || !signInData.user) {
+                setError('Email already registered. Please use a different email or sign in.');
+                setLoading(false);
+                return;
+            }
+
+            // Check if profile exists
+            const { data: existingProfile } = await supabase
+                .from('profiles')
+                .select('id')
+                .eq('id', signInData.user.id)
+                .maybeSingle();
+
+            if (existingProfile) {
+                // Profile exists, user should sign in instead
+                setError('Account already exists. Please sign in.');
+                await supabase.auth.signOut(); // Sign out the user we just signed in
+                setLoading(false);
+                return;
+            }
+
+            // Profile doesn't exist - create it (re-registration after rejection)
+            const { error: profileError } = await ((supabase
+                .from('profiles') as any)
+                .insert({
+                    id: signInData.user.id,
+                    first_name: formData.firstName,
+                    last_name: formData.lastName,
+                    status: 'pending',
+                    role: 'user'
+                } as any));
+
+            if (profileError) {
+                setError('Failed to create profile: ' + profileError.message);
+                setLoading(false);
+                return;
+            }
+
+            // Success - redirect to pending
+            navigate('/pending-approval');
+            return;
+        }
+
+        // 3. Handle other auth errors
         if (authError || !authData.user) {
             setError(authError?.message || 'Registration failed');
             setLoading(false);
             return;
         }
 
-        // 2. Redirect to Pending
+        // 4. Normal registration success - redirect to pending
         navigate('/pending-approval');
     };
 
