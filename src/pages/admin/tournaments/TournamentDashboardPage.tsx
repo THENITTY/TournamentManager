@@ -6,6 +6,7 @@ import AdminNavbar from '../../../components/admin/AdminNavbar';
 import type { Database } from '../../../types/database.types';
 import { showSuccess, showError } from '../../../lib/toastUtils';
 import DeckImage from '../../../components/decks/DeckImage';
+import StandingsTable from '../../../components/tournament/StandingsTable';
 
 import { generateRound1Pairings, calculateStandings, generateNextRoundPairings, type ParticipantStats } from '../../../lib/tournament/pairingUtils';
 
@@ -76,7 +77,7 @@ export default function TournamentDashboardPage() {
             .eq('tournament_id', id)
             .order('created_at', { ascending: true });
 
-        if (data) setMatches(data as any);
+        if (data) setMatches(data as unknown as MatchWithPlayers[]);
     }, [id]);
 
     const fetchArchetypes = useCallback(async (leagueId: string) => {
@@ -90,21 +91,24 @@ export default function TournamentDashboardPage() {
     }, []);
 
     const fetchTournament = useCallback(async () => {
-        const { data } = await (supabase
-            .from('tournaments') as any)
+        if (!id) return;
+        const { data } = await supabase
+            .from('tournaments')
             .select('*')
-            .eq('id', id!)
+            .eq('id', id)
             .single();
 
         if (data) {
-            setTournament(data as any);
-            if ((data as any).current_round) setViewRound((data as any).current_round);
-            fetchArchetypes((data as any).league_id);
+            const tournamentData = data as Tournament;
+            setTournament(tournamentData);
+            if (tournamentData.current_round) setViewRound(tournamentData.current_round);
+            fetchArchetypes(tournamentData.league_id);
         }
         setLoading(false);
     }, [id, fetchArchetypes]);
 
     const fetchParticipants = useCallback(async () => {
+        if (!id) return;
         const { data } = await supabase
             .from('tournament_participants')
             .select(`
@@ -112,10 +116,12 @@ export default function TournamentDashboardPage() {
                 user:profiles(id, first_name, last_name, avatar_url),
                 deck:decks(id, archetypes(name, cover_image_url, is_hybrid, archetype_compositions(card:cards(id, name, image_url, small_image_url))))
             `)
-            .eq('tournament_id', id!)
+            .eq('tournament_id', id)
             .order('joined_at', { ascending: true });
 
-        if (data) setParticipants(data as any);
+        if (data) {
+            setParticipants(data as unknown as ParticipantWithUser[]);
+        }
     }, [id]);
 
     useEffect(() => {
@@ -130,19 +136,35 @@ export default function TournamentDashboardPage() {
         if (!tournament) return;
 
         // Fetch all league members
-        const { data: members } = await (supabase
-            .from('league_members') as any)
-            .select('user_id, profiles(id, first_name, last_name, avatar_url)')
-            .eq('league_id', (tournament as any).league_id);
+        // Fetch all league members
+        const { data: members } = await supabase
+            .from('league_members')
+            .select('user_id, profiles!inner(id, first_name, last_name, avatar_url, deleted_at)')
+            .eq('league_id', tournament.league_id)
+            .is('profiles.deleted_at', null);
 
         if (members) {
             // Filter out those already in the tournament
             const participantIds = new Set(participants.map(p => p.user_id));
-            const available = (members as any[])
-                .map(m => m.profiles) // flatten
-                .filter(p => p && !participantIds.has(p.id)); // valid profile & not joined
 
-            setAvailableMembers(available as unknown as AvailableMember[]);
+            const validMembers: AvailableMember[] = [];
+            const membersList = members as unknown as { user_id: string, profiles: AvailableMember }[];
+
+            for (const m of membersList) {
+                // Supabase types might return profiles as array or single object depending on inference
+                // casting specifically to handle the join structure
+                const profile = m.profiles;
+                if (profile && !participantIds.has(profile.id)) {
+                    validMembers.push({
+                        id: profile.id,
+                        first_name: profile.first_name,
+                        last_name: profile.last_name,
+                        avatar_url: profile.avatar_url
+                    });
+                }
+            }
+
+            setAvailableMembers(validMembers);
         }
     };
 
@@ -882,83 +904,14 @@ export default function TournamentDashboardPage() {
                     )}
 
                     {activeTab === 'standings' && (
-                        <div className="bg-surface border border-white/5 rounded-xl overflow-hidden">
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left">
-                                    <thead className="bg-black/20 text-gray-400 text-xs uppercase font-bold tracking-wider">
-                                        <tr>
-                                            <th className="p-4">Rank</th>
-                                            <th className="p-4">Player</th>
-                                            <th className="p-4">Deck</th>
-                                            <th className="p-4 text-center">Points</th>
-                                            <th className="p-4 text-center">Real Wins</th>
-                                            <th className="p-4 text-center">OMW%</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-white/5">
-                                        {standings.length === 0 ? (
-                                            <tr>
-                                                <td colSpan={6} className="p-8 text-center text-gray-500">
-                                                    No standings data available yet.
-                                                </td>
-                                            </tr>
-                                        ) : (
-                                            standings.map((p, i) => {
-                                                const pDetails = participants.find(part => part.user_id === p.user_id);
-                                                const deck = pDetails?.deck;
-                                                const canEditDeck = isGlobalSuperAdmin || currentUserRole === 'admin' || currentUserRole === 'co_admin' || currentUserId === p.user_id;
-
-                                                return (
-                                                    <tr key={p.id} className="hover:bg-white/5 transition-colors">
-                                                        <td className="p-4 font-mono text-gray-500">#{i + 1}</td>
-                                                        <td className="p-4 font-bold text-white flex items-center gap-3">
-                                                            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary text-xs font-bold">
-                                                                {p.user?.first_name?.charAt(0).toUpperCase() || "?"}{p.user?.last_name?.charAt(0).toUpperCase() || "?"}
-                                                            </div>
-                                                            {p.user?.first_name} {p.user?.last_name}
-                                                        </td>
-                                                        <td className="p-4">
-                                                            {deck ? (
-                                                                <div
-                                                                    className={`flex items-center gap-3 ${canEditDeck ? 'cursor-pointer hover:opacity-80' : ''}`}
-                                                                    onClick={() => canEditDeck && pDetails && openDeckSelection(pDetails.id)}
-                                                                >
-                                                                    {deck.archetypes?.cover_image_url ? (
-                                                                        <div className="w-12 h-12 rounded-lg overflow-hidden shadow ring-1 ring-white/10 relative">
-                                                                            <DeckImage archetype={deck.archetypes as any} />
-                                                                        </div>
-                                                                    ) : (
-                                                                        <div className="w-12 h-12 bg-gray-800 rounded-lg flex items-center justify-center text-xs text-gray-500 border border-white/10">?</div>
-                                                                    )}
-                                                                    <div>
-                                                                        <div className="text-sm font-bold text-white max-w-[150px] truncate">{deck.archetypes?.name || 'Unknown'}</div>
-                                                                    </div>
-                                                                </div>
-                                                            ) : (
-                                                                canEditDeck && pDetails ? (
-                                                                    <button
-                                                                        onClick={() => openDeckSelection(pDetails.id)}
-                                                                        className="w-10 h-14 border border-dashed border-white/20 rounded flex items-center justify-center text-gray-400 hover:text-white hover:border-white/50 transition-colors"
-                                                                        title="Add Deck"
-                                                                    >
-                                                                        +
-                                                                    </button>
-                                                                ) : (
-                                                                    <span className="text-gray-600 text-sm">-</span>
-                                                                )
-                                                            )}
-                                                        </td>
-                                                        <td className="p-4 text-center font-mono font-bold text-primary">{p.points}</td>
-                                                        <td className="p-4 text-center font-mono text-gray-300">{p.realWins}</td>
-                                                        <td className="p-4 text-center font-mono text-gray-500">{(p.omw * 100).toFixed(1)}%</td>
-                                                    </tr>
-                                                )
-                                            })
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
+                        <StandingsTable
+                            standings={standings}
+                            participants={participants}
+                            isGlobalSuperAdmin={isGlobalSuperAdmin}
+                            currentUserRole={currentUserRole}
+                            currentUserId={currentUserId}
+                            onDeckClick={openDeckSelection}
+                        />
                     )}
                 </div>
             </div>

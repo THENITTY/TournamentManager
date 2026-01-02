@@ -18,6 +18,7 @@ export interface Database {
                     role: 'user' | 'admin' | 'super_admin'
                     status: 'pending' | 'active' | 'suspended'
                     created_at: string
+                    deleted_at: string | null
                 }
                 Insert: {
                     id: string
@@ -27,6 +28,7 @@ export interface Database {
                     role?: 'user' | 'admin' | 'super_admin'
                     status?: 'pending' | 'active' | 'suspended'
                     created_at?: string
+                    deleted_at?: string | null
                 }
                 Update: {
                     id?: string
@@ -36,6 +38,7 @@ export interface Database {
                     role?: 'user' | 'admin' | 'super_admin'
                     status?: 'pending' | 'active' | 'suspended'
                     created_at?: string
+                    deleted_at?: string | null
                 }
             }
             leagues: {
@@ -48,6 +51,7 @@ export interface Database {
                     status: 'upcoming' | 'ongoing' | 'completed'
                     is_public: boolean
                     created_at: string
+                    created_by: string
                 }
                 Insert: {
                     id?: string
@@ -58,6 +62,7 @@ export interface Database {
                     status?: 'upcoming' | 'ongoing' | 'completed'
                     is_public?: boolean
                     created_at?: string
+                    created_by?: string
                 }
                 Update: {
                     id?: string
@@ -68,6 +73,7 @@ export interface Database {
                     status?: 'upcoming' | 'ongoing' | 'completed'
                     is_public?: boolean
                     created_at?: string
+                    created_by?: string
                 }
             }
             league_members: {

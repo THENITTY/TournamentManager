@@ -65,7 +65,7 @@ export default function LeagueDetailPage() {
                 .single();
 
             if (profile) {
-                setIsGlobalSuperAdmin((profile as any).role === 'super_admin');
+                setIsGlobalSuperAdmin((profile as { role: string }).role === 'super_admin');
             }
 
             // Check League Role
@@ -77,7 +77,7 @@ export default function LeagueDetailPage() {
                 .single();
 
             if (member) {
-                setCurrentLeagueRole((member as any).role);
+                setCurrentLeagueRole((member as { role: LeagueRole }).role);
             }
         }
 
@@ -102,9 +102,10 @@ export default function LeagueDetailPage() {
                 role,
                 status,
                 joined_at,
-                profiles:user_id (first_name, last_name, avatar_url, role)
+                profiles:user_id!inner (first_name, last_name, avatar_url, role, deleted_at)
             `)
             .eq('league_id', leagueId)
+            .is('profiles.deleted_at', null)
             .order('joined_at', { ascending: true });
 
         if (membersData) setMembers(membersData as unknown as MemberDisplay[]);
@@ -247,7 +248,7 @@ export default function LeagueDetailPage() {
     const canManageRequests = isGlobalSuperAdmin || currentLeagueRole === 'admin' || currentLeagueRole === 'co_admin';
     const canManageTournaments = isGlobalSuperAdmin || currentLeagueRole === 'admin';
     // Use type assertion for created_by until type is updated in codebase
-    const canDeleteLeague = isGlobalSuperAdmin || (currentUserId && (league as any)?.created_by === currentUserId);
+    const canDeleteLeague = isGlobalSuperAdmin || (currentUserId && league?.created_by === currentUserId);
 
     const [tournamentTab, setTournamentTab] = useState<'active' | 'archive'>('active');
 
