@@ -25,6 +25,8 @@ export default function ArchetypeLibraryPage() {
     const [archetypes, setArchetypes] = useState<Archetype[]>([]);
     const [isCreating, setIsCreating] = useState(false);
     const [editingArchetype, setEditingArchetype] = useState<Archetype | null>(null);
+    const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+    const [showHybridConversionConfirm, setShowHybridConversionConfirm] = useState(false);
 
     const [verifying, setVerifying] = useState(true);
 
@@ -236,9 +238,10 @@ export default function ArchetypeLibraryPage() {
 
     const handleDelete = async (id: string, e: React.MouseEvent) => {
         e.stopPropagation();
-        if (!window.confirm("Delete this deck type?")) return;
+        // No window.confirm
         const { error } = await supabase.from('archetypes').delete().eq('id', id);
         if (!error) fetchArchetypes();
+        setConfirmDeleteId(null);
     };
 
     // Rendering logic moved to DeckImage component
@@ -275,19 +278,44 @@ export default function ArchetypeLibraryPage() {
                             <div className="flex-1 space-y-4 order-2 lg:order-1">
                                 <div className="flex justify-between items-center">
                                     <h2 className="text-lg sm:text-xl font-bold text-white">{editingArchetype ? 'Edit Deck Type' : 'New Deck Type'}</h2>
-                                    <button
-                                        onClick={() => {
-                                            if (editingArchetype && !isHybrid) {
-                                                if (!confirm("Converting to hybrid will clear the current cover card. Continue?")) return;
-                                            }
-                                            setIsHybrid(!isHybrid);
-                                            setHybridComponents([]);
-                                            setCustomName('');
-                                        }}
-                                        className={`px-2 py-1 rounded-full text-[10px] font-bold border flex items-center gap-1.5 transition-colors ${isHybrid ? 'bg-indigo-500 border-indigo-500 text-white' : 'bg-transparent border-gray-600 text-gray-400'}`}
-                                    >
-                                        <Layers size={10} /> {isHybrid ? 'Hybrid' : 'Pure'}
-                                    </button>
+                                    <div className="flex items-center gap-2">
+                                        {showHybridConversionConfirm ? (
+                                            <div className="flex items-center gap-1 bg-yellow-500/20 rounded p-1">
+                                                <button
+                                                    onClick={() => {
+                                                        setIsHybrid(!isHybrid);
+                                                        setHybridComponents([]);
+                                                        setCustomName('');
+                                                        setShowHybridConversionConfirm(false);
+                                                    }}
+                                                    className="px-2 py-0.5 bg-yellow-500 text-black rounded text-[10px] font-bold"
+                                                >
+                                                    Clear & Switch?
+                                                </button>
+                                                <button
+                                                    onClick={() => setShowHybridConversionConfirm(false)}
+                                                    className="p-0.5 text-gray-400 hover:text-white"
+                                                >
+                                                    <X size={12} />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <button
+                                                onClick={() => {
+                                                    if (editingArchetype && !isHybrid) {
+                                                        setShowHybridConversionConfirm(true);
+                                                        return;
+                                                    }
+                                                    setIsHybrid(!isHybrid);
+                                                    setHybridComponents([]);
+                                                    setCustomName('');
+                                                }}
+                                                className={`px-2 py-1 rounded-full text-[10px] font-bold border flex items-center gap-1.5 transition-colors ${isHybrid ? 'bg-indigo-500 border-indigo-500 text-white' : 'bg-transparent border-gray-600 text-gray-400'}`}
+                                            >
+                                                <Layers size={10} /> {isHybrid ? 'Hybrid' : 'Pure'}
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
 
                                 {!isHybrid ? (
@@ -456,13 +484,31 @@ export default function ArchetypeLibraryPage() {
                                 >
                                     <Edit size={18} />
                                 </button>
-                                <button
-                                    onClick={(e) => handleDelete(arch.id, e)}
-                                    className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
-                                    title="Delete"
-                                >
-                                    <Trash2 size={18} />
-                                </button>
+
+                                {confirmDeleteId === arch.id ? (
+                                    <div className="flex items-center gap-1 bg-red-500/20 rounded-lg p-1 animate-in fade-in zoom-in duration-200">
+                                        <button
+                                            onClick={(e) => handleDelete(arch.id, e)}
+                                            className="px-2 py-1 bg-red-500 text-white rounded text-xs font-bold"
+                                        >
+                                            Sure?
+                                        </button>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(null); }}
+                                            className="p-1 hover:bg-white/10 rounded"
+                                        >
+                                            <X size={14} />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(arch.id); }}
+                                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
+                                        title="Delete"
+                                    >
+                                        <Trash2 size={18} />
+                                    </button>
+                                )}
                             </div>
                         </div>
                     ))}

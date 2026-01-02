@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import type { Database } from '../../types/database.types';
@@ -6,165 +5,189 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Trophy, Search, Users, Plus, Check, X } from 'lucide-react';
 import ProfileModal from '../../components/dashboard/ProfileModal';
 import Navbar from '../../components/Navbar';
-import { showSuccess, showError } from '../../lib/toastUtils';
-
-type BaseLeague = Database['public']['Tables']['leagues']['Row'];
-
-type League = Omit<BaseLeague, 'status'> & {
-    role?: 'admin' | 'co_admin' | 'user';
-    status: BaseLeague['status'] | 'pending' | 'approved';
-};
+import UnseenPostsManager from '../../components/league/UnseenPostsManager';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
+// Omit status from original row to avoid conflict with overridden status
+type LeagueRow = Database['public']['Tables']['leagues']['Row'];
+type League = Omit<LeagueRow, 'status'> & {
+    role: 'admin' | 'co_admin' | 'user';
+    status: 'pending' | 'approved';
+};
+type AvailableLeague = Database['public']['Tables']['leagues']['Row'];
 
 export default function DashboardPage() {
+    const navigate = useNavigate();
+    const [userId, setUserId] = useState<string | null>(null);
     const [profile, setProfile] = useState<Profile | null>(null);
     const [myLeagues, setMyLeagues] = useState<League[]>([]);
-    const [availableLeagues, setAvailableLeagues] = useState<League[]>([]);
+    const [availableLeagues, setAvailableLeagues] = useState<AvailableLeague[]>([]);
     const [loading, setLoading] = useState(true);
-    const navigate = useNavigate();
-
-    // Creation State
     const [isCreating, setIsCreating] = useState(false);
     const [newLeagueName, setNewLeagueName] = useState('');
     const [isPublic, setIsPublic] = useState(false);
-
-    // Profile Modal State
     const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
     useEffect(() => {
         const init = async () => {
-            setLoading(true);
             const { data: { user } } = await supabase.auth.getUser();
-
-            if (!user) {
+            if (user) {
+                setUserId(user.id);
+                checkProfile(user.id);
+                fetchLeagues(user.id);
+            } else {
+                // Should be handled by ProtectedRoute, but safe fallback
                 navigate('/login');
-                return;
             }
-
-            // 1. Fetch Profile
-            const { data: profileData } = await supabase.from('profiles').select('*').eq('id', user.id).single();
-            if (profileData) setProfile(profileData);
-
-            // 2. Fetch joined leagues with Role & Status
-            const { data: memberships } = await (supabase
-                .from('league_members') as any)
-                .select('league_id, role, status')
-                .eq('user_id', user.id);
-
-            const joinedMap = new Map((memberships as any[])?.map(m => [m.league_id, { role: m.role, status: m.status }]) || []);
-            const joinedIds = Array.from(joinedMap.keys());
-
-            // 3. Fetch all active leagues
-            const { data: allLeagues } = await (supabase
-                .from('leagues') as any)
-                .select('*')
-                .eq('status', 'ongoing')
-                .order('created_at', { ascending: false });
-
-            if (allLeagues) {
-                const my: League[] = (allLeagues as any[])
-                    .filter((l: any) => joinedIds.includes(l.id))
-                    .map((l: any) => {
-                        const info = joinedMap.get(l.id);
-                        return {
-                            ...l,
-                            role: (info?.role as 'admin' | 'co_admin' | 'user') || 'user',
-                            status: (((profileData as any)?.role === 'super_admin' ? 'approved' : (info?.status as 'pending' | 'approved')) || 'approved') as any
-                        };
-                    });
-
-                setMyLeagues(my);
-                setAvailableLeagues((allLeagues as any[]).filter((l: any) => !joinedIds.includes(l.id) && l.is_public));
-            }
-
-            setLoading(false);
         };
         init();
     }, [navigate]);
 
-    const canCreateLeague = profile?.role === 'super_admin' || profile?.role === 'admin';
+    const checkProfile = async (currentUserId: string) => {
+        try {
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', currentUserId)
+                .single();
+
+            if (error || !data) {
+                console.error("Error fetching profile:", error);
+            } else {
+                setProfile(data);
+            }
+        } catch (error) {
+            console.error("Error checking profile:", error);
+        }
+    };
+
+    const fetchLeagues = async (currentUserId: string) => {
+        try {
+            setLoading(true);
+            // 1. Fetch My Leagues (joined)
+            const { data: memberData, error: memberError } = await supabase
+                .from('league_members')
+                .select(`
+                    role,
+                    status,
+                    league:leagues (
+                        *
+                    )
+                `)
+                .eq('user_id', currentUserId);
+
+            if (memberError) throw memberError;
+
+            const joinedLeagues = (memberData || [])
+                .map((item: any) => ({
+                    ...item.league,
+                    role: item.role,
+                    status: item.status
+                }))
+                .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+            // Cast strictly to League[] after manual verification of structure
+            setMyLeagues(joinedLeagues as League[]);
+
+            // 2. Fetch Available Public Leagues (not joined)
+            const joinedLeagueIds = joinedLeagues.map((l: any) => l.id);
+            const joinedIdsString = joinedLeagueIds.length > 0 ? `(${joinedLeagueIds.join(',')})` : `(00000000-0000-0000-0000-000000000000)`;
+
+            const { data: publicData, error: publicError } = await supabase
+                .from('leagues')
+                .select('*')
+                .eq('is_public', true)
+                .eq('status', 'upcoming')
+                .not('id', 'in', joinedIdsString)
+                .order('created_at', { ascending: false });
+
+            if (publicError) throw publicError;
+
+            setAvailableLeagues(publicData || []);
+
+        } catch (error) {
+            console.error('Error fetching leagues:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleCreateLeague = async () => {
-        if (!newLeagueName.trim() || !profile || !canCreateLeague) return;
+        if (!newLeagueName.trim() || !userId) return;
 
-        // 1. Create League
-        const { data: leagueData, error: leagueError } = (await (supabase
-            .from('leagues') as any)
-            .insert({
-                name: newLeagueName,
-                status: 'ongoing',
-                is_public: isPublic
-            } as any)
-            .select()
-            .single()) as any;
+        try {
+            const { data: league, error: leagueError } = await supabase
+                .from('leagues')
+                .insert({
+                    name: newLeagueName,
+                    format: 'Standard', // Default
+                    start_date: new Date().toISOString(),
+                    status: 'upcoming',
+                    is_public: isPublic,
+                    created_by: userId
+                })
+                .select()
+                .single();
 
-        if (leagueError) {
-            showError(leagueError.message || 'Failed to create league');
-            return;
-        }
+            if (leagueError) throw leagueError;
 
-        // 2. Add Creator as Admin
-        const { error: memberError } = await ((supabase.from('league_members') as any).insert({
-            league_id: (leagueData as any).id,
-            user_id: profile.id,
-            role: 'admin',
-            status: 'approved'
-        }));
+            // Add creator as admin
+            const { error: memberError } = await supabase
+                .from('league_members')
+                .insert({
+                    league_id: league.id,
+                    user_id: userId,
+                    role: 'admin',
+                    status: 'approved'
+                });
 
-        if (memberError) {
-            showError('League created but failed to join as admin');
-        } else {
-            // Optimistic Update
-            setMyLeagues(prev => [{ ...leagueData, role: 'admin', status: 'approved' }, ...prev]);
+            if (memberError) throw memberError;
+
             setIsCreating(false);
             setNewLeagueName('');
-            setIsPublic(false);
-            showSuccess('League created successfully!');
+            fetchLeagues(userId); // Refresh
+            navigate(`/admin/leagues/${league.id}`);
+
+        } catch (error) {
+            console.error('Error creating league:', error);
+            alert('Failed to create league');
         }
     };
 
     const handleJoin = async (e: React.MouseEvent, leagueId: string) => {
         e.preventDefault();
-        if (!profile) return;
+        if (!userId) return;
 
         try {
-            const isSuperAdmin = profile.role === 'super_admin';
+            const { error } = await supabase
+                .from('league_members')
+                .insert({
+                    league_id: leagueId,
+                    user_id: userId,
+                    role: 'user',
+                    status: 'approved'
+                });
 
-            const { error } = await ((supabase.from('league_members') as any).insert({
-                league_id: leagueId,
-                user_id: profile.id,
-                role: 'user',
-                status: isSuperAdmin ? 'approved' : 'pending'
-            }));
-
-            if (error) {
-                showError(error.message || 'Failed to join league');
-                return;
-            }
-
-            // Optimistic Update
-            const league = availableLeagues.find(l => l.id === leagueId);
-            if (league) {
-                setAvailableLeagues(prev => prev.filter(l => l.id !== leagueId));
-                setMyLeagues(prev => [{ ...league, role: 'user', status: isSuperAdmin ? 'approved' : 'pending' }, ...prev]);
-                showSuccess(isSuperAdmin ? 'Joined league successfully!' : 'Join request sent! Waiting for approval.');
-            }
-        } catch (err: any) {
-            showError('Unexpected error joining league');
+            if (error) throw error;
+            fetchLeagues(userId);
+        } catch (error) {
+            console.error('Error joining league:', error);
+            alert('Failed to join league');
         }
     };
 
-    const handleProfileUpdate = (updates: Partial<Profile>) => {
-        if (!profile) return;
-        setProfile({ ...profile, ...updates });
+    const handleProfileUpdate = () => {
+        if (userId) checkProfile(userId);
     };
+
+    const canCreateLeague = true;
 
     if (loading) return <div className="p-8 text-white min-h-screen bg-background flex items-center justify-center">Loading...</div>;
 
     return (
         <div className="min-h-screen bg-background">
             <Navbar />
+            <UnseenPostsManager />
             <div className="max-w-6xl mx-auto p-4 sm:p-8 space-y-6 sm:space-y-8 relative">
                 <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-2">
                     <div>
@@ -173,6 +196,12 @@ export default function DashboardPage() {
                         </h1>
                         <p className="text-gray-400 text-sm">Welcome back, {profile?.first_name || 'Duelist'}</p>
                     </div>
+                    <button
+                        onClick={() => setIsProfileModalOpen(true)}
+                        className="text-sm text-primary hover:underline"
+                    >
+                        Edit Profile
+                    </button>
                 </header>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
@@ -263,8 +292,6 @@ export default function DashboardPage() {
 
                     {/* RIGHT COLUMN: PROFILE & AVAILABLE LEAGUES */}
                     <div className="space-y-8">
-
-
                         {/* AVAILABLE LEAGUES */}
                         <section>
                             <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">

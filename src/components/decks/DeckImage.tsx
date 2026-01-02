@@ -16,6 +16,17 @@ interface DeckImageProps {
     className?: string;
 }
 
+// Helper for clipped images
+const ClippedImage = ({ src, clipPath, zIndex }: { src: string, clipPath: string, zIndex: number }) => (
+    <div className="absolute inset-0 w-full h-full" style={{ clipPath, zIndex }}>
+        <img
+            src={src}
+            className="w-full h-full object-cover object-[center_20%] scale-[1.8]"
+            alt=""
+        />
+    </div>
+);
+
 /**
  * Renders a split view for hybrid decks with multiple component images
  */
@@ -25,17 +36,17 @@ const renderSplitView = (images: string[]) => {
     // 2 Components: Vertical Diagonal Split
     if (images.length === 2) {
         return (
-            <div className="w-full h-full relative">
-                <img
+            <div className="w-full h-full relative overflow-hidden">
+                <ClippedImage
                     src={images[0]}
-                    className="absolute inset-0 w-full h-full object-cover"
-                    style={{ clipPath: 'polygon(0 0, 65% 0, 35% 100%, 0 100%)', zIndex: 1 }}
+                    clipPath="polygon(0 0, 65% 0, 35% 100%, 0 100%)"
+                    zIndex={1}
                 />
                 <div className="absolute inset-0 bg-black/50" style={{ clipPath: 'polygon(64% 0, 66% 0, 36% 100%, 34% 100%)', zIndex: 2 }} /> {/* Divider Line */}
-                <img
+                <ClippedImage
                     src={images[1]}
-                    className="absolute inset-0 w-full h-full object-cover"
-                    style={{ clipPath: 'polygon(65% 0, 100% 0, 100% 100%, 35% 100%)', zIndex: 1 }}
+                    clipPath="polygon(65% 0, 100% 0, 100% 100%, 35% 100%)"
+                    zIndex={1}
                 />
             </div>
         );
@@ -43,26 +54,26 @@ const renderSplitView = (images: string[]) => {
 
     // 3+ Components: Fan Split
     return (
-        <div className="w-full h-full relative">
+        <div className="w-full h-full relative overflow-hidden">
             {/* Primary Left */}
-            <img
+            <ClippedImage
                 src={images[0]}
-                className="absolute inset-0 w-full h-full object-cover"
-                style={{ clipPath: 'polygon(0 0, 70% 0, 30% 100%, 0 100%)', zIndex: 2 }}
+                clipPath="polygon(0 0, 70% 0, 30% 100%, 0 100%)"
+                zIndex={2}
             />
 
             {/* Top Right */}
-            <img
+            <ClippedImage
                 src={images[1] || images[0]}
-                className="absolute inset-0 w-full h-full object-cover"
-                style={{ clipPath: 'polygon(70% 0, 100% 0, 100% 50%, 50% 50%)', zIndex: 1 }}
+                clipPath="polygon(70% 0, 100% 0, 100% 50%, 50% 50%)"
+                zIndex={1}
             />
 
             {/* Bottom Right */}
-            <img
+            <ClippedImage
                 src={images[2] || images[0]}
-                className="absolute inset-0 w-full h-full object-cover"
-                style={{ clipPath: 'polygon(50% 50%, 100% 50%, 100% 100%, 30% 100%)', zIndex: 1 }}
+                clipPath="polygon(50% 50%, 100% 50%, 100% 100%, 30% 100%)"
+                zIndex={1}
             />
 
             {/* Dividers */}

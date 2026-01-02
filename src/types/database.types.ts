@@ -361,18 +361,108 @@ export interface Database {
                     created_at?: string
                 }
             }
-        }
-        Views: {
-            [_ in never]: never
-        }
-        Functions: {
-            is_super_admin: {
-                Args: Record<PropertyKey, never>
-                Returns: boolean
+            league_posts: {
+                Row: {
+                    id: string
+                    league_id: string
+                    user_id: string
+                    type: 'announcement' | 'event'
+                    title: string
+                    description: string | null
+                    event_date: string | null
+                    format: string | null
+                    cost_mode: 'fixed' | 'split' | null
+                    cost_value: number | null
+                    max_players: number | null
+                    created_at: string
+                    updated_at: string
+                }
+                Insert: {
+                    id?: string
+                    league_id: string
+                    user_id: string
+                    type?: 'announcement' | 'event'
+                    title: string
+                    description?: string | null
+                    event_date?: string | null
+                    format?: string | null
+                    cost_mode?: 'fixed' | 'split' | null
+                    cost_value?: number | null
+                    max_players?: number | null
+                    created_at?: string
+                    updated_at?: string
+                }
+                Update: {
+                    id?: string
+                    league_id?: string
+                    user_id?: string
+                    type?: 'announcement' | 'event'
+                    title?: string
+                    description?: string | null
+                    event_date?: string | null
+                    format?: string | null
+                    cost_mode?: 'fixed' | 'split' | null
+                    cost_value?: number | null
+                    max_players?: number | null
+                    created_at?: string
+                    updated_at?: string
+                }
+            }
+            post_interactions: {
+                Row: {
+                    id: string
+                    post_id: string
+                    user_id: string
+                    status: 'interested' | 'not_interested'
+                    created_at: string
+                }
+                Insert: {
+                    id?: string
+                    post_id: string
+                    user_id: string
+                    status: 'interested' | 'not_interested'
+                    created_at?: string
+                }
+                Update: {
+                    id?: string
+                    post_id?: string
+                    user_id?: string
+                    status?: 'interested' | 'not_interested'
+                    created_at?: string
+                }
+            }
+            post_views: {
+                Row: {
+                    id: string
+                    user_id: string
+                    post_id: string
+                    viewed_at: string
+                }
+                Insert: {
+                    id?: string
+                    user_id: string
+                    post_id: string
+                    viewed_at?: string
+                }
+                Update: {
+                    id?: string
+                    user_id?: string
+                    post_id?: string
+                    viewed_at?: string
+                }
             }
         }
-        Enums: {
-            [_ in never]: never
+    }
+    Views: {
+        [_ in never]: never
+    }
+    Functions: {
+        is_super_admin: {
+            Args: Record<PropertyKey, never>
+            Returns: boolean
         }
+    }
+    Enums: {
+        [_ in never]: never
     }
 }

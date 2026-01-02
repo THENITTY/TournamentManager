@@ -14,6 +14,8 @@ export default function AdminDashboard() {
     const [profiles, setProfiles] = useState<Profile[]>([]);
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
+    const [confirmKickId, setConfirmKickId] = useState<string | null>(null);
+    const [confirmRejectId, setConfirmRejectId] = useState<string | null>(null);
     const navigate = useNavigate();
 
     // Fetch all profiles (RLS allows Super Admin to see all)
@@ -67,9 +69,8 @@ export default function AdminDashboard() {
     };
 
     const handleKick = async (userId: string, userName: string) => {
-        if (!window.confirm(`Kick ${userName}? They will be logged out but historical data will be preserved. They can re-register.`)) {
-            return;
-        }
+        // No window.confirm
+
 
         // Soft delete: set deleted_at timestamp
         const { error } = await ((supabase
@@ -84,13 +85,11 @@ export default function AdminDashboard() {
 
         setProfiles(profiles.filter(p => p.id !== userId));
         showSuccess('User kicked successfully. Historical data preserved.');
+        setConfirmKickId(null);
     };
 
     const handleReject = async (userId: string, userName: string) => {
-        // Confirmation dialog
-        if (!window.confirm(`Reject ${userName}? This will permanently delete their account and allow them to re-register.`)) {
-            return;
-        }
+        // No window.confirm
 
         // Delete profile (cascades to league memberships, tournament participants, etc.)
         // Note: We don't delete the auth user as it requires Service Role Key (backend only).
@@ -110,6 +109,7 @@ export default function AdminDashboard() {
 
         // Update UI
         setProfiles(profiles.filter(p => p.id !== userId));
+        setConfirmRejectId(null);
     };
 
     if (loading) return <div className="p-8"><Loader2 className="animate-spin" /></div>;
@@ -155,11 +155,29 @@ export default function AdminDashboard() {
                                             className="p-2 hover:bg-green-500/20 text-green-500 rounded-lg transition-colors" title="Approve">
                                             <Check />
                                         </button>
-                                        <button
-                                            onClick={() => handleReject(user.id, `${user.first_name} ${user.last_name}`)}
-                                            className="p-2 hover:bg-red-500/20 text-red-500 rounded-lg transition-colors" title="Reject">
-                                            <X />
-                                        </button>
+
+                                        {confirmRejectId === user.id ? (
+                                            <div className="flex items-center gap-1 bg-red-500/20 rounded-lg p-1 animate-in fade-in zoom-in duration-200">
+                                                <button
+                                                    onClick={() => handleReject(user.id, `${user.first_name} ${user.last_name}`)}
+                                                    className="px-2 py-1 bg-red-500 text-white rounded text-xs font-bold"
+                                                >
+                                                    Sure?
+                                                </button>
+                                                <button
+                                                    onClick={() => setConfirmRejectId(null)}
+                                                    className="p-1 hover:bg-white/10 rounded"
+                                                >
+                                                    <X size={14} />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <button
+                                                onClick={() => setConfirmRejectId(user.id)}
+                                                className="p-2 hover:bg-red-500/20 text-red-500 rounded-lg transition-colors" title="Reject">
+                                                <X />
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             ))}
@@ -177,13 +195,30 @@ export default function AdminDashboard() {
                                 <div className="flex items-center gap-3">
                                     <span className="text-xs px-2 py-1 rounded bg-primary/10 text-primary capitalize">{user.role}</span>
                                     {user.id !== currentUserId && (
-                                        <button
-                                            onClick={() => handleKick(user.id, `${user.first_name} ${user.last_name}`)}
-                                            className="p-1.5 hover:bg-red-500/20 text-red-500 rounded transition-all"
-                                            title="Kick User"
-                                        >
-                                            <X size={16} />
-                                        </button>
+                                        confirmKickId === user.id ? (
+                                            <div className="flex items-center gap-1 bg-red-500/20 rounded-lg p-1 animate-in fade-in zoom-in duration-200">
+                                                <button
+                                                    onClick={() => handleKick(user.id, `${user.first_name} ${user.last_name}`)}
+                                                    className="px-2 py-1 bg-red-500 text-white rounded text-xs font-bold"
+                                                >
+                                                    Kick?
+                                                </button>
+                                                <button
+                                                    onClick={() => setConfirmKickId(null)}
+                                                    className="p-1 hover:bg-white/10 rounded"
+                                                >
+                                                    <X size={14} />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <button
+                                                onClick={() => setConfirmKickId(user.id)}
+                                                className="p-1.5 hover:bg-red-500/20 text-red-500 rounded transition-all"
+                                                title="Kick User"
+                                            >
+                                                <X size={16} />
+                                            </button>
+                                        )
                                     )}
                                 </div>
                             </div>

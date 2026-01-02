@@ -3,9 +3,13 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../../../lib/supabase';
 import type { Database } from '../../../types/database.types';
-import { ArrowLeft, Users, Calendar, Library, Globe, Lock, MoreHorizontal, Trophy, Shield, User, Trash2, Edit, Check, X } from 'lucide-react';
+import { ArrowLeft, Users, Calendar, Library, Globe, Lock, MoreHorizontal, Trophy, Shield, User, Trash2, Edit, Check, X, AlignLeft, Plus } from 'lucide-react';
 import AdminNavbar from '../../../components/admin/AdminNavbar';
 import { showSuccess, showError } from '../../../lib/toastUtils';
+import PostCard from '../../../components/league/PostCard';
+import CreatePostModal from '../../../components/league/CreatePostModal';
+import type { PostWithDetails } from '../../../types/league';
+import { formatDateTime } from '../../../lib/dateUtils';
 
 type League = Database['public']['Tables']['leagues']['Row'];
 type LeagueRole = 'admin' | 'co_admin' | 'user';
@@ -30,6 +34,7 @@ export default function LeagueDetailPage() {
     const [league, setLeague] = useState<League | null>(null);
     const [tournaments, setTournaments] = useState<Tournament[]>([]);
     const [members, setMembers] = useState<MemberDisplay[]>([]);
+    const [posts, setPosts] = useState<PostWithDetails[]>([]);
     const [loading, setLoading] = useState(true);
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
@@ -40,6 +45,14 @@ export default function LeagueDetailPage() {
     // Name Editing
     const [isEditingName, setIsEditingName] = useState(false);
     const [editedName, setEditedName] = useState('');
+    const [editingPost, setEditingPost] = useState<PostWithDetails | null>(null);
+    const [confirmKickId, setConfirmKickId] = useState<string | null>(null);
+    const [showConfirmDeleteLeague, setShowConfirmDeleteLeague] = useState(false);
+    const [confirmDeleteTournamentId, setConfirmDeleteTournamentId] = useState<string | null>(null);
+
+    // Tabs
+    const [activeTab, setActiveTab] = useState<'tournaments' | 'board'>('tournaments');
+    const [isCreatePostModalOpen, setIsCreatePostModalOpen] = useState(false);
 
     useEffect(() => {
         if (id) fetchAllData(id);
@@ -93,6 +106,9 @@ export default function LeagueDetailPage() {
             .order('date', { ascending: false });
         if (tournamentData) setTournaments(tournamentData);
 
+        // Fetch Posts
+        await fetchPosts(leagueId, user?.id);
+
         // Fetch Members
         const { data: membersData } = await supabase
             .from('league_members')
@@ -112,6 +128,29 @@ export default function LeagueDetailPage() {
 
         setLoading(false);
     };
+
+    const fetchPosts = async (leagueId: string, userId?: string) => {
+        const { data: postsData, error } = await supabase
+            .from('league_posts')
+            .select(`
+                *,
+                author:user_id(first_name, last_name, avatar_url),
+                interactions:post_interactions(
+                    *,
+                    user:user_id(first_name, last_name, avatar_url)
+                )
+            `)
+            .eq('league_id', leagueId)
+            .order('created_at', { ascending: false });
+
+        if (postsData && !error) {
+            const processed = postsData.map((p: any) => ({
+                ...p,
+                current_user_interaction: userId ? p.interactions.find((i: any) => i.user_id === userId)?.status : null
+            }));
+            setPosts(processed as PostWithDetails[]);
+        }
+    }
 
     const toggleVisibility = async () => {
         if (!league) return;
@@ -133,7 +172,7 @@ export default function LeagueDetailPage() {
 
     const handleDeleteLeague = async () => {
         if (!league) return;
-        if (!window.confirm(`Are you sure you want to delete "${league.name}"? This cannot be undone.`)) return;
+        // No window.confirm
 
         const { error } = await supabase
             .from('leagues')
@@ -141,12 +180,13 @@ export default function LeagueDetailPage() {
             .eq('id', league.id);
 
         if (error) {
-            showError(error.message || "Failed to delete league");
+            showError("Delete Failed: " + error.message);
         } else {
             // Redirect to User Dashboard
             showSuccess('League deleted successfully');
             window.location.href = '/';
         }
+        setShowConfirmDeleteLeague(false);
     };
 
     const handleUpdateName = async () => {
@@ -228,10 +268,40 @@ export default function LeagueDetailPage() {
             .eq('id', memberId);
 
         if (error) {
-            showError(error.message || "Failed to kick member");
-            showSuccess('Operation completed successfully');
+            showError("Kick Failed: " + error.message);
+            console.error(error);
+            showSuccess('Operation completed successfully'); // Wait, why success if error? Removing this line.
             fetchAllData(league!.id);
         }
+        setConfirmKickId(null);
+    };
+
+    const getPostPermissions = (post: PostWithDetails) => {
+        if (!currentUserId) return { canEdit: false, canDelete: false };
+
+        const isAuthor = post.user_id === currentUserId;
+
+        if (isGlobalSuperAdmin) return { canEdit: true, canDelete: true };
+
+        // League Admin
+        if (currentLeagueRole === 'admin') {
+            if (isAuthor) return { canEdit: true, canDelete: true };
+
+            const authorMember = members.find(m => m.user_id === post.user_id);
+            // If author is Admin -> Cannot manage
+            if (authorMember?.role === 'admin') return { canEdit: false, canDelete: false };
+
+            // Can manage Co-Admin or User (or unknown)
+            return { canEdit: true, canDelete: true };
+        }
+
+        // Co-Admin
+        if (currentLeagueRole === 'co_admin') {
+            return { canEdit: isAuthor, canDelete: isAuthor };
+        }
+
+        // Regular User (can manage own)
+        return { canEdit: isAuthor, canDelete: isAuthor };
     };
 
     // Permission Check Helper
@@ -259,6 +329,7 @@ export default function LeagueDetailPage() {
 
     const handleDeleteTournament = async (tournamentId: string) => {
         setTournaments(prev => prev.filter(t => t.id !== tournamentId));
+        setConfirmDeleteTournamentId(null);
 
         const { error } = await supabase
             .from('tournaments')
@@ -338,7 +409,7 @@ export default function LeagueDetailPage() {
                             )}
 
                             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-gray-400 text-sm">
-                                <span className="flex items-center gap-1 whitespace-nowrap"><Calendar size={14} /> {new Date(league.created_at).toLocaleDateString()}</span>
+                                <span className="flex items-center gap-1 whitespace-nowrap"><Calendar size={14} /> {formatDateTime(league.created_at)}</span>
                                 <span className={`px-2 py-0.5 rounded text-xs capitalize ${league.status === 'ongoing' ? 'bg-green-500/20 text-green-500' : 'bg-gray-500/20'}`}>
                                     {league.status}
                                 </span>
@@ -368,103 +439,200 @@ export default function LeagueDetailPage() {
                             )}
 
                             {canDeleteLeague && (
-                                <button
-                                    onClick={handleDeleteLeague}
-                                    className="px-3 py-2 bg-red-500/10 text-red-500 border border-red-500/50 hover:bg-red-500/20 rounded-lg transition-colors shrink-0"
-                                    title="Delete League"
-                                >
-                                    <Trash2 size={16} />
-                                </button>
+                                showConfirmDeleteLeague ? (
+                                    <div className="flex items-center gap-1 bg-red-500/20 rounded-lg p-1 animate-in fade-in slide-in-from-right-2">
+                                        <span className="text-xs text-red-500 font-bold px-1">Sure?</span>
+                                        <button
+                                            onClick={handleDeleteLeague}
+                                            className="px-2 py-1 bg-red-500 text-white rounded text-xs font-bold hover:bg-red-600"
+                                        >
+                                            Yes
+                                        </button>
+                                        <button
+                                            onClick={() => setShowConfirmDeleteLeague(false)}
+                                            className="px-2 py-1 bg-white/10 text-gray-300 rounded text-xs font-bold hover:bg-white/20"
+                                        >
+                                            No
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <button
+                                        onClick={() => setShowConfirmDeleteLeague(true)}
+                                        className="px-3 py-2 bg-red-500/10 text-red-500 border border-red-500/50 hover:bg-red-500/20 rounded-lg transition-colors shrink-0"
+                                        title="Delete League"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                )
                             )}
                         </div>
                     </div>
                 </header>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    {/* LEFT COLUMN */}
+                    {/* LEFT COLUMN: Main Content */}
                     <div className="lg:col-span-2 space-y-8">
-                        {/* TOURNAMENTS SECTION */}
-                        <section className="bg-surface border border-white/5 rounded-xl p-6">
-                            <div className="flex justify-between items-center mb-6">
-                                <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-                                    <Trophy className="text-yellow-500" /> Tournaments
-                                </h2>
-                                {canManageRequests && (
-                                    <Link
-                                        to={`/admin/leagues/${league.id}/tournaments/new`}
-                                        className="px-4 py-2 bg-primary text-background font-bold rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2 text-sm"
+
+                        {/* MAIN TABS */}
+                        <div className="flex gap-4 border-b border-white/10 pb-4">
+                            <button
+                                onClick={() => setActiveTab('tournaments')}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${activeTab === 'tournaments' ? 'bg-primary/20 text-primary font-bold' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+                            >
+                                <Trophy size={18} /> Tournaments
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('board')}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${activeTab === 'board' ? 'bg-blue-500/20 text-blue-500 font-bold' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+                            >
+                                <AlignLeft size={18} /> Notice Board
+                            </button>
+                        </div>
+
+                        {activeTab === 'tournaments' && (
+                            <section className="bg-surface border border-white/5 rounded-xl p-6 animate-in fade-in slide-in-from-left-4">
+                                <div className="flex justify-between items-center mb-6">
+                                    <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+                                        Active & Past Events
+                                    </h2>
+                                    {canManageRequests && (
+                                        <Link
+                                            to={`/admin/leagues/${league.id}/tournaments/new`}
+                                            className="px-4 py-2 bg-primary text-background font-bold rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2 text-sm"
+                                        >
+                                            <Users size={16} /> New Tournament
+                                        </Link>
+                                    )}
+                                </div>
+
+                                {/* INNER TABS */}
+                                <div className="flex border-b border-white/10 mb-4">
+                                    <button
+                                        onClick={() => setTournamentTab('active')}
+                                        className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${tournamentTab === 'active' ? 'border-primary text-primary' : 'border-transparent text-gray-400 hover:text-white'}`}
                                     >
-                                        <Users size={16} /> New Tournament
-                                    </Link>
-                                )}
-                            </div>
-
-                            {/* TABS */}
-                            <div className="flex border-b border-white/10 mb-4">
-                                <button
-                                    onClick={() => setTournamentTab('active')}
-                                    className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${tournamentTab === 'active' ? 'border-primary text-primary' : 'border-transparent text-gray-400 hover:text-white'}`}
-                                >
-                                    Active
-                                </button>
-                                <button
-                                    onClick={() => setTournamentTab('archive')}
-                                    className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${tournamentTab === 'archive' ? 'border-primary text-primary' : 'border-transparent text-gray-400 hover:text-white'}`}
-                                >
-                                    Archive
-                                </button>
-                            </div>
-
-                            {filteredTournaments.length === 0 ? (
-                                <div className="text-center py-8 text-gray-500 border border-dashed border-white/5 rounded-xl">
-                                    <p>{tournamentTab === 'active' ? 'No active tournaments.' : 'No archived tournaments.'}</p>
+                                        Active
+                                    </button>
+                                    <button
+                                        onClick={() => setTournamentTab('archive')}
+                                        className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${tournamentTab === 'archive' ? 'border-primary text-primary' : 'border-transparent text-gray-400 hover:text-white'}`}
+                                    >
+                                        Archive
+                                    </button>
                                 </div>
-                            ) : (
-                                <div className="space-y-3">
-                                    {filteredTournaments.map(t => (
-                                        <div key={t.id} className="flex items-center gap-2 bg-black/20 p-2 pr-4 rounded-lg border border-white/5 hover:border-primary/50 transition-colors group">
-                                            <Link
-                                                to={`/admin/tournaments/${t.id}`}
-                                                className="flex-1 p-2"
-                                            >
-                                                <div>
-                                                    <h3 className="text-white font-bold group-hover:text-primary transition-colors">{t.name}</h3>
-                                                    <div className="flex items-center gap-4 text-xs text-gray-400 mt-1">
-                                                        <span className="flex items-center gap-1"><Calendar size={12} /> {new Date(t.date).toLocaleDateString()}</span>
-                                                        <span className="bg-white/10 px-2 py-0.5 rounded text-gray-300">{t.format}</span>
-                                                        <span className={`px-2 py-0.5 rounded capitalize ${t.status === 'setup' ? 'bg-yellow-500/10 text-yellow-500' :
-                                                            t.status === 'active' ? 'bg-blue-500/10 text-blue-500' :
-                                                                'bg-green-500/10 text-green-500'
-                                                            }`}>
-                                                            {t.status === 'setup' ? 'Pending' : t.status === 'active' ? 'Running' : 'Completed'}
-                                                        </span>
+
+                                {filteredTournaments.length === 0 ? (
+                                    <div className="text-center py-8 text-gray-500 border border-dashed border-white/5 rounded-xl">
+                                        <p>{tournamentTab === 'active' ? 'No active tournaments.' : 'No archived tournaments.'}</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {filteredTournaments.map(t => (
+                                            <div key={t.id} className="flex items-center gap-2 bg-black/20 p-2 pr-4 rounded-lg border border-white/5 hover:border-primary/50 transition-colors group">
+                                                <Link
+                                                    to={`/admin/tournaments/${t.id}`}
+                                                    className="flex-1 p-2"
+                                                >
+                                                    <div>
+                                                        <h3 className="text-white font-bold group-hover:text-primary transition-colors">{t.name}</h3>
+                                                        <div className="flex items-center gap-4 text-xs text-gray-400 mt-1">
+                                                            <span className="flex items-center gap-1"><Calendar size={12} /> {formatDateTime(t.date)}</span>
+                                                            <span className="bg-white/10 px-2 py-0.5 rounded text-gray-300">{t.format}</span>
+                                                            <span className={`px-2 py-0.5 rounded capitalize ${t.status === 'setup' ? 'bg-yellow-500/10 text-yellow-500' :
+                                                                t.status === 'active' ? 'bg-blue-500/10 text-blue-500' :
+                                                                    'bg-green-500/10 text-green-500'
+                                                                }`}>
+                                                                {t.status === 'setup' ? 'Pending' : t.status === 'active' ? 'Running' : 'Completed'}
+                                                            </span>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            </Link>
+                                                </Link>
 
-                                            {canManageTournaments && (
-                                                <div className="flex items-center gap-2">
-                                                    <Link
-                                                        to={`/admin/tournaments/${t.id}/edit`}
-                                                        className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-                                                        title="Edit Tournament"
-                                                    >
-                                                        <MoreHorizontal size={18} />
-                                                    </Link>
-                                                    <button
-                                                        onClick={() => handleDeleteTournament(t.id)}
-                                                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
-                                                        title="Delete Tournament"
-                                                    >
-                                                        <Trash2 size={18} />
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))}
+                                                {canManageTournaments && (
+                                                    <div className="flex items-center gap-2">
+                                                        <Link
+                                                            to={`/admin/tournaments/${t.id}/edit`}
+                                                            className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                                                            title="Edit Tournament"
+                                                        >
+                                                            <MoreHorizontal size={18} />
+                                                        </Link>
+                                                        {confirmDeleteTournamentId === t.id ? (
+                                                            <div className="flex items-center gap-1 bg-red-500/20 rounded-lg p-1 animate-in fade-in zoom-in duration-200">
+                                                                <button
+                                                                    onClick={() => handleDeleteTournament(t.id)}
+                                                                    className="px-2 py-1 bg-red-500 text-white rounded text-xs font-bold hover:bg-red-600"
+                                                                >
+                                                                    Sure?
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => setConfirmDeleteTournamentId(null)}
+                                                                    className="p-1 hover:bg-white/10 rounded"
+                                                                >
+                                                                    <X size={14} />
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <button
+                                                                onClick={() => setConfirmDeleteTournamentId(t.id)}
+                                                                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
+                                                                title="Delete Tournament"
+                                                            >
+                                                                <Trash2 size={18} />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </section>
+                        )}
+
+                        {activeTab === 'board' && (
+                            <section className="space-y-6 animate-in fade-in slide-in-from-right-4">
+                                <div className="flex justify-between items-center">
+                                    <h2 className="text-xl font-semibold text-white">Announcements & Events</h2>
+                                    {canManageRequests && (
+                                        <button
+                                            onClick={() => setIsCreatePostModalOpen(true)}
+                                            className="px-4 py-2 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2 text-sm shadow-lg shadow-blue-500/20"
+                                        >
+                                            <Plus size={16} /> Create Post
+                                        </button>
+                                    )}
                                 </div>
-                            )}
-                        </section>
+
+                                {posts.length === 0 ? (
+                                    <div className="text-center py-12 text-gray-500 bg-surface border border-dashed border-white/5 rounded-xl">
+                                        <AlignLeft className="mx-auto mb-3 opacity-20" size={48} />
+                                        <p className="text-lg font-medium text-gray-400">Nothing here yet</p>
+                                        <p className="text-sm">Check back later for tournaments and announcements.</p>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-1 gap-6">
+                                        {posts.map(post => {
+                                            const perms = getPostPermissions(post);
+                                            return (
+                                                <PostCard
+                                                    key={post.id}
+                                                    post={post}
+                                                    currentUserId={currentUserId}
+                                                    onUpdate={() => fetchPosts(league.id, currentUserId || undefined)}
+                                                    canEdit={perms.canEdit}
+                                                    canDelete={perms.canDelete}
+                                                    onEdit={(p) => {
+                                                        setEditingPost(p);
+                                                        setIsCreatePostModalOpen(true);
+                                                    }}
+                                                />
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </section>
+                        )}
                     </div>
 
                     {/* RIGHT COLUMN: MEMBERS */}
@@ -556,24 +724,58 @@ export default function LeagueDetailPage() {
                                                         {isGlobalSuperAdmin && <option value="admin">Admin</option>}
                                                     </select>
 
-                                                    <button
-                                                        onClick={() => handleKick(member.id)}
-                                                        className="p-1.5 text-gray-400 hover:bg-red-500/10 hover:text-red-500 rounded transition-colors"
-                                                        title="Kick Member"
-                                                    >
-                                                        <Trash2 size={14} />
-                                                    </button>
+                                                    {confirmKickId === member.id ? (
+                                                        <div className="flex items-center gap-1">
+                                                            <button
+                                                                onClick={() => handleKick(member.id)}
+                                                                className="p-1 px-2 bg-red-500 text-white rounded text-[10px] font-bold hover:bg-red-600"
+                                                            >
+                                                                CONFIRM
+                                                            </button>
+                                                            <button
+                                                                onClick={() => setConfirmKickId(null)}
+                                                                className="p-1 px-2 bg-white/10 text-gray-400 rounded text-[10px] hover:bg-white/20"
+                                                            >
+                                                                CANCEL
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        <button
+                                                            onClick={() => setConfirmKickId(member.id)}
+                                                            className="p-1.5 text-gray-400 hover:bg-red-500/10 hover:text-red-500 rounded transition-colors"
+                                                            title="Kick Member"
+                                                        >
+                                                            <Trash2 size={14} />
+                                                        </button>
+                                                    )}
                                                 </div>
                                             ) : (
                                                 <div className="px-2">
                                                     {isGlobalSuperAdmin && !isSelf && (
-                                                        <button
-                                                            onClick={() => handleKick(member.id)}
-                                                            className="p-1.5 text-gray-400 hover:bg-red-500/10 hover:text-red-500 rounded transition-colors"
-                                                            title="Kick Admin"
-                                                        >
-                                                            <Trash2 size={14} />
-                                                        </button>
+                                                        confirmKickId === member.id ? (
+                                                            <div className="flex items-center gap-1">
+                                                                <button
+                                                                    onClick={() => handleKick(member.id)}
+                                                                    className="p-1 px-2 bg-red-500 text-white rounded text-[10px] font-bold hover:bg-red-600"
+                                                                >
+                                                                    CONFIRM
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => setConfirmKickId(null)}
+                                                                    className="p-1 px-2 bg-white/10 text-gray-400 rounded text-[10px] hover:bg-white/20"
+                                                                >
+                                                                    CANCEL
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <button
+                                                                onClick={() => setConfirmKickId(member.id)}
+                                                                className="p-1.5 text-gray-400 hover:bg-red-500/10 hover:text-red-500 rounded transition-colors"
+                                                                title="Kick Admin"
+                                                            >
+                                                                <Trash2 size={14} />
+                                                            </button>
+                                                        )
                                                     )}
                                                 </div>
                                             )}
@@ -587,6 +789,21 @@ export default function LeagueDetailPage() {
                         </section>
                     </div>
                 </div>
+
+                {/* MODALS */}
+                {league && currentUserId && (
+                    <CreatePostModal
+                        isOpen={isCreatePostModalOpen}
+                        onClose={() => {
+                            setIsCreatePostModalOpen(false);
+                            setEditingPost(null);
+                        }}
+                        initialData={editingPost}
+                        leagueId={league.id}
+                        userId={currentUserId}
+                        onCreated={() => fetchPosts(league.id, currentUserId)}
+                    />
+                )}
             </div >
         </div >
     );
