@@ -68,7 +68,7 @@ export default function AdminDashboard() {
         }
     };
 
-    const handleKick = async (userId: string, userName: string) => {
+    const handleKick = async (userId: string) => {
         // No window.confirm
 
 
@@ -88,7 +88,7 @@ export default function AdminDashboard() {
         setConfirmKickId(null);
     };
 
-    const handleReject = async (userId: string, userName: string) => {
+    const handleReject = async (userId: string) => {
         // No window.confirm
 
         // Delete profile (cascades to league memberships, tournament participants, etc.)
@@ -159,7 +159,7 @@ export default function AdminDashboard() {
                                         {confirmRejectId === user.id ? (
                                             <div className="flex items-center gap-1 bg-red-500/20 rounded-lg p-1 animate-in fade-in zoom-in duration-200">
                                                 <button
-                                                    onClick={() => handleReject(user.id, `${user.first_name} ${user.last_name}`)}
+                                                    onClick={() => handleReject(user.id)}
                                                     className="px-2 py-1 bg-red-500 text-white rounded text-xs font-bold"
                                                 >
                                                     Sure?
@@ -198,7 +198,7 @@ export default function AdminDashboard() {
                                         confirmKickId === user.id ? (
                                             <div className="flex items-center gap-1 bg-red-500/20 rounded-lg p-1 animate-in fade-in zoom-in duration-200">
                                                 <button
-                                                    onClick={() => handleKick(user.id, `${user.first_name} ${user.last_name}`)}
+                                                    onClick={() => handleKick(user.id)}
                                                     className="px-2 py-1 bg-red-500 text-white rounded text-xs font-bold"
                                                 >
                                                     Kick?

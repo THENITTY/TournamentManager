@@ -116,8 +116,8 @@ export default function DashboardPage() {
         if (!newLeagueName.trim() || !userId) return;
 
         try {
-            const { data: league, error: leagueError } = await supabase
-                .from('leagues')
+            const { data: league, error: leagueError } = await (supabase
+                .from('leagues') as any)
                 .insert({
                     name: newLeagueName,
                     format: 'Standard', // Default
@@ -132,8 +132,8 @@ export default function DashboardPage() {
             if (leagueError) throw leagueError;
 
             // Add creator as admin
-            const { error: memberError } = await supabase
-                .from('league_members')
+            const { error: memberError } = await (supabase
+                .from('league_members') as any)
                 .insert({
                     league_id: league.id,
                     user_id: userId,
@@ -159,8 +159,8 @@ export default function DashboardPage() {
         if (!userId) return;
 
         try {
-            const { error } = await supabase
-                .from('league_members')
+            const { error } = await (supabase
+                .from('league_members') as any)
                 .insert({
                     league_id: leagueId,
                     user_id: userId,

@@ -101,14 +101,14 @@ export default function CreatePostModal({ isOpen, onClose, leagueId, onCreated, 
             const updatePayload = { ...payload, updated_at: new Date().toISOString() };
             delete updatePayload.user_id; // Preserve original author
 
-            const { error: updateError } = await supabase
-                .from('league_posts')
+            const { error: updateError } = await (supabase
+                .from('league_posts') as any)
                 .update(updatePayload)
                 .eq('id', initialData.id);
             error = updateError;
         } else {
             // Insert
-            const { error: insertError } = await supabase.from('league_posts').insert(payload);
+            const { error: insertError } = await (supabase.from('league_posts') as any).insert(payload);
             error = insertError;
         }
 
