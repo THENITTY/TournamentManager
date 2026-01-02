@@ -1,16 +1,7 @@
 import { Trophy } from 'lucide-react';
-import type { Database } from '../../types/database.types';
 import DeckImage from '../decks/DeckImage';
 import { type ParticipantStats } from '../../lib/tournament/pairingUtils';
-
-// Reusing the type from the parent, ideally moved to a shared type file
-type ParticipantWithUser = Database['public']['Tables']['tournament_participants']['Row'] & {
-    user: { id: string; first_name: string; last_name: string; avatar_url: string | null } | null;
-    deck?: {
-        id: string;
-        archetypes: { name: string; cover_image_url: string } | null
-    } | null;
-};
+import type { ParticipantWithUser } from '../../types/tournament';
 
 interface StandingsTableProps {
     standings: ParticipantStats[];
